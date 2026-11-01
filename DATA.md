@@ -7,7 +7,7 @@ and destination paths are configured in `configs/sources.yaml` and
 
 | Dataset used | Access | Citation |
 | --- | --- | --- |
-| CrowdFlood v1, record 19921295 | Public ZIP | Chen et al. (2026), [10.5281/zenodo.19921295](https://zenodo.org/records/19921295) |
+| CrowdFlood v1, record 19921295 | Download from the authors' Zenodo record | Chen et al. (2026), [10.5281/zenodo.19921295](https://zenodo.org/records/19921295) |
 | geoBoundaries CHN ADM2, commit `9469f09592ced973a3448cf66b6100b741b64c0d` | Public download | Runfola et al. (2020), [10.1371/journal.pone.0231866](https://doi.org/10.1371/journal.pone.0231866) |
 | Copernicus DEM GLO-30 DGED 2024_1 | CDSE registration | European Space Agency and Airbus (2022), [10.5270/ESA-c5d3d65](https://doi.org/10.5270/ESA-c5d3d65) |
 | ESA WorldCover 2021 v200 | Public S3 downloads | Zanaga et al. (2022), [10.5281/zenodo.7254221](https://zenodo.org/records/7254221) |
@@ -19,10 +19,12 @@ Complete citations are supplied in BibTeX. [data_references.bib](data_references
 
 ## Download details
 
-- **CrowdFlood**. Keep `CrowdFlood dataset.zip` intact. Preparation extracts
+- **CrowdFlood**. Download `CrowdFlood dataset.zip` from the authors' Zenodo page
+  after reviewing its licence, and keep the archive intact. Preparation extracts
   `Zhengzhou_City_2021_7_19.csv` and `Beijing_2023_7_30.csv`, applies `pt_type_1=1`
   and merges records within 200 m cells. Expected totals are 791 and 296 recorded
-  cells. [Pinned ZIP](https://zenodo.org/api/records/19921295/files/CrowdFlood%20dataset.zip/content).
+  cells. Cite Chen et al. (2026) with the version-specific dataset DOI.
+  [Official dataset and licence](https://zenodo.org/records/19921295).
 - **Boundaries**. Select `Zhengzhoushi` (`17275852B14866353147502`) and
   `Beijingshi` (`17275852B40522342172572`).
   [Pinned GeoJSON](https://media.githubusercontent.com/media/wmgeolab/geoBoundaries/9469f09592ced973a3448cf66b6100b741b64c0d/releaseData/gbOpen/CHN/ADM2/geoBoundaries-CHN-ADM2.geojson).
