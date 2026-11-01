@@ -7,10 +7,16 @@ permissions:
 jobs:
   cpu:
     strategy:
+      fail-fast: false
       matrix:
         os: [ubuntu-latest, windows-latest]
     runs-on: ${{ matrix.os }}
+    env:
+      UV_PROJECT_ENVIRONMENT: ${{ runner.temp }}/flood-graph-venv
     steps:
+      - name: Enable long paths on Windows
+        if: runner.os == 'Windows'
+        run: git config --system core.longpaths true
       - uses: actions/checkout@v7
       - uses: astral-sh/setup-uv@68559e99cc807c1eb7e9238fd43a15bba460eec2
         with:
