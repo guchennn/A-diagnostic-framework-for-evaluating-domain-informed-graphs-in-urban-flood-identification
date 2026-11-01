@@ -249,11 +249,11 @@ def run_audit(root: Path) -> None:
         *inputs,
         *sorted((root / "configs").rglob("*.yaml")),
         root / "artifacts/protocol_lock.json",
-        root / "uv.lock",
+        root / "requirements.txt",
+        root / "requirements-train.txt",
         root / "src/floodgnn_ceus/graph_support_audit.py",
         root / "src/floodgnn_ceus/graphs.py",
         root / "src/floodgnn_ceus/evaluation_design.py",
-        root / "scripts/audit_graph_support.py",
     ]
     manifest = {
         "analysis": "post-hoc descriptive effective G2 graph-support audit; no retraining",
@@ -339,7 +339,7 @@ def run_audit(root: Path) -> None:
 数据、配置、代码及输出 SHA-256 见 [manifest.json](../results/graph_support/manifest.json)。
 发布文件仅含汇总数，不含节点 ID、坐标或逐节点标签。
 
-复现：`uv run python scripts/audit_graph_support.py --root .`。
+复现：`python -m floodgnn_ceus.graph_support_audit --root .`。
 """
     (root / "docs/graph_support_audit.md").write_text(report, encoding="utf-8")
     print(json.dumps({"output": str(output), "rows": {k: len(v) for k, v in tables.items()}}))

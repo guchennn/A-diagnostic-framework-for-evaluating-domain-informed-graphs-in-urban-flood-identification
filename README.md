@@ -14,12 +14,30 @@ Terrain from Copernicus DEM. Land cover from ESA WorldCover.</sub>
 
 ## Install
 
-Use Python 3.12 and [uv](https://docs.astral.sh/uv/getting-started/installation/).
+Use Python 3.12. Create a virtual environment from the repository root.
 
 ```sh
 git clone https://github.com/guchennn/A-diagnostic-framework-for-evaluating-domain-informed-graphs-in-urban-flood-identification.git flood-graph-diagnostics
 cd flood-graph-diagnostics
-uv sync --frozen
+python -m venv .venv
+```
+
+Activate it in your shell.
+
+```sh
+# Linux / macOS
+source .venv/bin/activate
+```
+
+```powershell
+# Windows PowerShell
+.venv\Scripts\Activate.ps1
+```
+
+Install the pinned dependencies and the local package.
+
+```sh
+python -m pip install -r requirements.txt
 ```
 
 ## Run with the included data
@@ -28,9 +46,9 @@ These CPU commands recompute Tables 2 and 3, check the seed statistics underlyin
 Table 4, and run the ten-replicate synthetic experiment.
 
 ```sh
-uv run python scripts/reproduce_tables.py
-uv run python scripts/check_seed_results.py
-uv run python -m floodgnn_ceus.synthetic_diagnostic_validation --output reproduced/synthetic
+python scripts/reproduce_tables.py
+python scripts/check_seed_results.py
+python -m floodgnn_ceus.synthetic_diagnostic_validation --output reproduced/synthetic
 ```
 
 Generated files go to `reproduced/`. Published numerical results are in `results/`.
@@ -53,7 +71,7 @@ Provider links, dataset citations and the command sequence are in the two guides
 | `tests/` | Numerical and workflow tests |
 
 ```sh
-uv run pytest -q --basetemp .pytest_tmp
+python -m pytest -q --basetemp .pytest_tmp
 ```
 
 The original FULL-budget ablation is available as aggregates. Exact training replay

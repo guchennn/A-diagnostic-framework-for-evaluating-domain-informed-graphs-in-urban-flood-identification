@@ -486,7 +486,11 @@ def _artifact_records(root: Path) -> tuple[list[dict[str, object]], dict[str, ob
             records.append(_record(root, city_root / "evaluation_design" / name, "design"))
         for name in GRAPH_FILES:
             records.append(_record(root, city_root / "graphs" / name, "graph"))
-    code_paths = [root / "pyproject.toml", root / "uv.lock"]
+    code_paths = [
+        root / "pyproject.toml",
+        root / "requirements.txt",
+        root / "requirements-train.txt",
+    ]
     code_paths.extend(sorted((root / "src").rglob("*.py")))
     code_paths.extend(sorted((root / "tests").rglob("*.py")))
     records.extend(_record(root, path, "code") for path in code_paths)

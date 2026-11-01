@@ -90,7 +90,6 @@ def revision_root(tmp_path):
     for relative in (
         "configs/matched_models.yaml",
         "configs/model_grid.yaml",
-        "uv.lock",
         "pyproject.toml",
         "artifacts/protocol_lock.json",
         "src/floodgnn_ceus/models.py",
@@ -101,6 +100,8 @@ def revision_root(tmp_path):
             target.write_text('{"effective_protocol_id": "synthetic-test-protocol"}')
         else:
             shutil.copyfile(source / relative, target)
+    for name in ("requirements.txt", "requirements-train.txt"):
+        (tmp_path / name).write_text("synthetic-package==1.0\n")
     return tmp_path
 
 

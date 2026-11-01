@@ -23,10 +23,12 @@ CITY_INPUTS = (
 
 @pytest.fixture
 def local_root(tmp_path):
-    for name in (revision.CONFIG, "configs/model_grid.yaml", "pyproject.toml", "uv.lock"):
+    for name in (revision.CONFIG, "configs/model_grid.yaml", "pyproject.toml"):
         path = tmp_path / name
         path.parent.mkdir(parents=True, exist_ok=True)
         path.write_bytes((ROOT / name).read_bytes())
+    for name in ("requirements.txt", "requirements-train.txt"):
+        (tmp_path / name).write_text("synthetic-package==1.0\n")
     for name in ("artifacts/protocol_lock.json", "src/floodgnn_ceus/example.py"):
         path = tmp_path / name
         path.parent.mkdir(parents=True, exist_ok=True)
@@ -242,3 +244,27 @@ def test_release_has_no_remote_operations_module():
     assert not hasattr(e1, "run_e1_outer_batch")
     assert not hasattr(training, "probe_training_resources")
     assert callable(revision.run_local_probe)
+
+
+@pytest.mark.parametrize("relative", ["requirements.txt", "requirements-train.txt"])
+def test_dependency_change_invalidates_source_and_local_lock(local_root, monkeypatch, relative):
+    monkeypatch.setattr(revision, "_environment", lambda: {"synthetic": "CUDA"})
+    first = revision.prepare_plan(local_root)
+    revision.freeze_local_environment(local_root)
+    (local_root / relative).write_text("synthetic-package==2.0\n")
+    second = revision.prepare_plan(local_root)
+    assert first["source_files"][relative] != second["source_files"][relative]
+    assert first["source_sha256"] != second["source_sha256"]
+    assert first["run_namespace"] != second["run_namespace"]
+    with pytest.raises(ValueError, match="inputs differ"):
+        revision._require_local_lock(local_root, first)
+    with pytest.raises(FileNotFoundError, match="local_environment_lock"):
+        revision._require_local_lock(local_root, second)
+    assert revision.preflight(local_root)["status"] == "blocked"
+
+
+@pytest.mark.parametrize("relative", ["requirements.txt", "requirements-train.txt"])
+def test_missing_dependency_file_blocks_source_identity(local_root, relative):
+    (local_root / relative).unlink()
+    with pytest.raises(FileNotFoundError):
+        revision.prepare_plan(local_root)

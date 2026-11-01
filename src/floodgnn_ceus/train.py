@@ -38,7 +38,7 @@ def _config(root: Path) -> dict:
 
 
 def _source_identity(root: Path) -> dict[str, str]:
-    paths = [root / "pyproject.toml", root / "uv.lock"]
+    paths = [root / "pyproject.toml", root / "requirements.txt", root / "requirements-train.txt"]
     paths.extend(sorted((root / "configs").rglob("*.yaml")))
     paths.extend(sorted((root / "src/floodgnn_ceus").glob("*.py")))
     return {path.relative_to(root).as_posix(): sha256_file(path) for path in paths}
