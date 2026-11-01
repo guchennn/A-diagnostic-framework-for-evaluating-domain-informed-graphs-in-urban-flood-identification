@@ -4,6 +4,14 @@ Experiment code and numerical data for the Zhengzhou (2021) and Beijing (2023)
 case studies, covering matched graph comparisons, attribute ablation, structural
 decomposition, seed sensitivity and synthetic validation.
 
+[![Four-dimensional diagnostic framework](assets/framework.png)](assets/framework.png)
+
+*Matched comparisons, information conditions, structural diagnosis and evaluation
+stability. Click the figure to view it at full resolution.*
+
+<sub>Imagery © Esri, Vantor, Earthstar Geographics and the GIS User Community.
+Terrain from Copernicus DEM. Land cover from ESA WorldCover.</sub>
+
 ## Install
 
 Use Python 3.12 and [uv](https://docs.astral.sh/uv/getting-started/installation/).
