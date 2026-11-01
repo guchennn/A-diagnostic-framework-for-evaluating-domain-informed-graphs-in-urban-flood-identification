@@ -11,8 +11,6 @@ jobs:
       matrix:
         os: [ubuntu-latest, windows-latest]
     runs-on: ${{ matrix.os }}
-    env:
-      UV_PROJECT_ENVIRONMENT: ${{ runner.temp }}/flood-graph-venv
     steps:
       - name: Enable long paths on Windows
         if: runner.os == 'Windows'
@@ -23,6 +21,9 @@ jobs:
           version: "0.13.1"
           python-version: "3.12.11"
           enable-cache: true
+      - name: Use a short dependency environment path
+        shell: bash
+        run: echo "UV_PROJECT_ENVIRONMENT=$RUNNER_TEMP/flood-graph-venv" >> "$GITHUB_ENV"
       - run: uv sync --frozen --group figures
       - run: uv run ruff check src scripts analysis plots tests
       - run: uv run ruff format --check src scripts analysis plots tests
