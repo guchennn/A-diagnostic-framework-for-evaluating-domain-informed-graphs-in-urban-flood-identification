@@ -17,12 +17,6 @@ SEED = 20261011
 REPLICATES = 10000
 METHODS = ("G0", "G1", "G2", "G4", "Fixed-filter")
 GROUP = ["city", "outer_fold", "trajectory", "seed", "bank_id", "method"]
-INPUTS = {
-    "sampled": "artifacts/runtime/rebootstrap-tree-20260925/evaluation.parquet",
-    "full_features": "artifacts/runtime/feature-ablation-reselect-20260925/fold_level.csv",
-    "scarce_features": "artifacts/runtime/rq2-scarcity-zz-20260927/cell_scores.parquet",
-    "archive": "artifacts/runs/formal-e1-e2-e3-43f3cdf-20260812/results.tar",
-}
 
 
 def ranking_metrics(labels: np.ndarray, scores: np.ndarray) -> dict[str, float]:
