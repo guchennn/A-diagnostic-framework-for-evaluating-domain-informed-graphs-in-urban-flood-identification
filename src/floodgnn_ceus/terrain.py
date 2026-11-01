@@ -1,0 +1,1225 @@
+"""GLO-30 DSM acquisition and the final scorable-grid coverage gate."""
+
+from __future__ import annotations
+
+import heapq
+import json
+import math
+import os
+import re
+from collections import deque
+from collections.abc import Callable, Mapping, Sequence
+from datetime import UTC, datetime
+from getpass import getpass
+from pathlib import Path
+from urllib.parse import urljoin, urlsplit
+
+import geopandas as gpd
+import numpy as np
+import pyarrow as pa
+import pyarrow.parquet as pq
+import rasterio
+import requests
+from rasterio.transform import from_origin
+from rasterio.warp import Resampling, reproject
+from scipy.ndimage import convolve, maximum_filter, minimum_filter
+from shapely.geometry import box
+from shapely.geometry.base import BaseGeometry
+
+from floodgnn_ceus.io import canonical_json_bytes, sha256_bytes, sha256_file
+from floodgnn_ceus.labels import (
+    build_label_ledgers,
+    label_qc_record,
+    read_crowdflood_rows,
+    write_label_ledgers,
+)
+from floodgnn_ceus.protocol import LoadedProtocol, load_protocol
+from floodgnn_ceus.sources import (
+    RAW_SOURCE_COLUMNS,
+    RAW_SOURCE_SCHEMA,
+    DownloadError,
+    SourceRecord,
+    download_http,
+    ensure_free_space,
+    write_source_receipt,
+)
+
+_TILE_ID = re.compile(r"^([NS])(\d{2})([EW])(\d{3})$")
+_PRODUCT_NAME = re.compile(r"^[A-Za-z0-9_.-]+\.DEM$")
+_REDIRECTS = {301, 302, 303, 307, 308}
+_NEIGHBORS = ((0, 1), (1, 1), (1, 0), (1, -1), (0, -1), (-1, -1), (-1, 0), (-1, 1))
+_DISTANCES = (1.0, math.sqrt(2.0), 1.0, math.sqrt(2.0), 1.0, math.sqrt(2.0), 1.0, math.sqrt(2.0))
+_NO_FLOW = -1
+_FLOW_OUT = -2
+_NODATA_FLOW = -3
+_TERRAIN_FEATURES = (
+    "elevation_mean",
+    "slope_mean",
+    "relative_elevation_1km",
+    "local_relief_1km",
+    "log_flow_accumulation",
+    "twi",
+)
+
+
+def select_glo30_tiles(
+    city_aois: Mapping[str, gpd.GeoDataFrame],
+    *,
+    context_buffer_m: int,
+) -> dict[str, tuple[str, ...]]:
+    """Select one-degree GLO-30 tiles intersecting each buffered projected AOI."""
+    if context_buffer_m < 0:
+        raise ValueError("context buffer must be non-negative")
+    selected: dict[str, tuple[str, ...]] = {}
+    for city_id, aoi in city_aois.items():
+        if len(aoi) != 1 or aoi.crs is None or not aoi.crs.is_projected:
+            raise ValueError(f"{city_id} AOI must contain one projected geometry")
+        context = (
+            gpd.GeoSeries([aoi.geometry.iloc[0].buffer(context_buffer_m)], crs=aoi.crs)
+            .to_crs(4326)
+            .iloc[0]
+        )
+        min_x, min_y, max_x, max_y = context.bounds
+        tile_ids = []
+        for latitude in range(math.floor(min_y), math.ceil(max_y)):
+            for longitude in range(math.floor(min_x), math.ceil(max_x)):
+                tile = box(longitude, latitude, longitude + 1, latitude + 1)
+                if context.intersection(tile).area > 0:
+                    north_south = "N" if latitude >= 0 else "S"
+                    east_west = "E" if longitude >= 0 else "W"
+                    tile_ids.append(
+                        f"{north_south}{abs(latitude):02d}{east_west}{abs(longitude):03d}"
+                    )
+        if not tile_ids:
+            raise ValueError(f"GLO-30 does not cover {city_id} context")
+        selected[city_id] = tuple(sorted(set(tile_ids)))
+    return selected
+
+
+def _tile_stem(tile_id: str) -> str:
+    match = _TILE_ID.fullmatch(tile_id)
+    if match is None:
+        raise ValueError("invalid GLO-30 tile ID")
+    return f"Copernicus_DSM_10_{match[1]}{match[2]}_00_{match[3]}{match[4]}_00"
+
+
+def build_dsm_download_url(
+    source: Mapping[str, object],
+    tile_id: str,
+    tile: Mapping[str, object],
+) -> str:
+    """Build the CDSE OData leaf URL for one frozen DSM tile."""
+    api = source.get("download_api")
+    product_id = tile.get("product_id")
+    product_name = tile.get("product_name")
+    if not isinstance(api, str) or not api.startswith("https://"):
+        raise ValueError("invalid CDSE download API")
+    if not isinstance(product_id, str) or re.fullmatch(r"[0-9a-f-]{36}", product_id) is None:
+        raise ValueError("invalid CDSE product ID")
+    if not isinstance(product_name, str) or _PRODUCT_NAME.fullmatch(product_name) is None:
+        raise ValueError("invalid CDSE product name")
+    stem = _tile_stem(tile_id)
+    root_node = product_name.removesuffix(".DEM")
+    return (
+        f"{api.rstrip('/')}/Products({product_id})/Nodes({root_node})/Nodes({stem})/"
+        f"Nodes(DEM)/Nodes({stem}_DEM.tif)/$value"
+    )
+
+
+def request_cdse_access_token(
+    session: requests.Session,
+    identity_url: str,
+    *,
+    prompt: Callable[[str], str] = getpass,
+) -> str:
+    """Request one short-lived CDSE access token from hidden terminal prompts."""
+    username = prompt("CDSE username: ")
+    password = prompt("CDSE password: ")
+    totp = prompt("CDSE TOTP (leave empty if disabled): ")
+    if not username or not password:
+        raise ValueError("CDSE username and password are required")
+    data = {
+        "client_id": "cdse-public",
+        "grant_type": "password",
+        "username": username,
+        "password": password,
+    }
+    if totp:
+        data["totp"] = totp
+    try:
+        response = session.post(identity_url, data=data, timeout=(10, 60))
+    except requests.RequestException:
+        raise OSError("CDSE authentication request failed") from None
+    try:
+        if response.status_code != 200:
+            raise PermissionError("CDSE authentication failed")
+        try:
+            payload = response.json()
+        except ValueError:
+            raise OSError("CDSE authentication response is invalid") from None
+        token = payload.get("access_token") if isinstance(payload, dict) else None
+        if not isinstance(token, str) or not token:
+            raise OSError("CDSE authentication response is invalid")
+        return token
+    finally:
+        response.close()
+
+
+class CdseDownloadSession:
+    """Attach CDSE authorization only to the official OData endpoint."""
+
+    def __init__(self, session: requests.Session, access_token: str) -> None:
+        self._session = session
+        self._access_token = access_token
+
+    def get(self, url: str, **kwargs: object) -> requests.Response:
+        parsed = urlsplit(url)
+        if parsed.scheme != "https" or parsed.hostname != "download.dataspace.copernicus.eu":
+            raise ValueError("CDSE authorization target is invalid")
+        headers = dict(kwargs.pop("headers", {}) or {})
+        headers["Authorization"] = f"Bearer {self._access_token}"
+        kwargs.pop("allow_redirects", None)
+        current = url
+        for _ in range(6):
+            response = self._session.get(
+                current,
+                headers=headers,
+                allow_redirects=False,
+                **kwargs,
+            )
+            if response.status_code not in _REDIRECTS:
+                return response
+            location = response.headers.get("Location")
+            next_url = urljoin(response.url, location) if location else ""
+            response.close()
+            target = urlsplit(next_url)
+            if target.scheme != "https" or target.hostname is None or target.username is not None:
+                raise DownloadError("CDSE returned an invalid download redirect")
+            current = next_url
+            headers.pop("Authorization", None)
+        raise DownloadError("CDSE returned too many download redirects")
+
+
+def combine_dem_observations(
+    elevations: Sequence[np.ndarray],
+    coverages: Sequence[np.ndarray],
+) -> tuple[np.ndarray, np.ndarray]:
+    """Combine reprojected tile means using their valid-area fractions."""
+    if not elevations or len(elevations) != len(coverages):
+        raise ValueError("DEM observations are incomplete")
+    shape = elevations[0].shape
+    if any(array.ndim != 2 or array.shape != shape for array in [*elevations, *coverages]):
+        raise ValueError("DEM observation shapes must match")
+    weighted = np.zeros(shape, dtype=np.float64)
+    total = np.zeros(shape, dtype=np.float64)
+    for elevation, coverage in zip(elevations, coverages, strict=True):
+        values = np.asarray(elevation, dtype=np.float64)
+        weights = np.asarray(coverage, dtype=np.float64)
+        valid = np.isfinite(values) & np.isfinite(weights) & (weights > 0)
+        weighted[valid] += values[valid] * weights[valid]
+        total[valid] += weights[valid]
+    result = np.full(shape, np.nan, dtype=np.float64)
+    np.divide(weighted, total, out=result, where=total > 0)
+    return result, np.clip(total, 0.0, 1.0)
+
+
+def apply_dem_coverage_gate(
+    candidate: gpd.GeoDataFrame,
+    coverage: np.ndarray,
+    *,
+    threshold: float,
+) -> gpd.GeoDataFrame:
+    """Retain WorldCover candidate nodes with sufficient valid DSM area."""
+    values = np.asarray(coverage, dtype=np.float64)
+    if values.ndim != 1 or len(values) != len(candidate):
+        raise ValueError("DEM coverage must align with candidate nodes")
+    if not 0 <= threshold <= 1:
+        raise ValueError("DEM coverage threshold must be between zero and one")
+    final = candidate.copy()
+    final["dem_valid_fraction"] = values
+    final = final.loc[np.isfinite(values) & (values >= threshold)].copy().reset_index(drop=True)
+    final["aoi_stage"] = "final_scorable"
+    final["grid_stage"] = "final_scorable"
+    final["is_final_scorable"] = True
+    return final
+
+
+def _dem_array(dem: np.ndarray) -> np.ndarray:
+    values = np.asarray(dem, dtype=np.float64)
+    if values.ndim != 2 or 0 in values.shape:
+        raise ValueError("DEM must be a non-empty two-dimensional array")
+    return values
+
+
+def _neighbors(row: int, column: int, shape: tuple[int, int]):
+    for direction, (row_offset, column_offset) in enumerate(_NEIGHBORS):
+        neighbor_row = row + row_offset
+        neighbor_column = column + column_offset
+        if 0 <= neighbor_row < shape[0] and 0 <= neighbor_column < shape[1]:
+            yield direction, neighbor_row, neighbor_column
+
+
+def _is_processing_boundary(valid: np.ndarray, row: int, column: int) -> bool:
+    if row in {0, valid.shape[0] - 1} or column in {0, valid.shape[1] - 1}:
+        return True
+    return any(
+        not valid[row + row_offset, column + column_offset]
+        for row_offset, column_offset in _NEIGHBORS
+    )
+
+
+def priority_flood(dem: np.ndarray) -> np.ndarray:
+    """Fill depressions using the frozen float64 eight-neighbor Priority-Flood."""
+    filled = _dem_array(dem).copy()
+    valid = np.isfinite(filled)
+    closed = ~valid.copy()
+    queue: list[tuple[float, int, int]] = []
+    for row, column in zip(*np.nonzero(valid), strict=True):
+        if _is_processing_boundary(valid, int(row), int(column)):
+            closed[row, column] = True
+            heapq.heappush(queue, (float(filled[row, column]), int(row), int(column)))
+    while queue:
+        elevation, row, column = heapq.heappop(queue)
+        for _, neighbor_row, neighbor_column in _neighbors(row, column, filled.shape):
+            if closed[neighbor_row, neighbor_column]:
+                continue
+            closed[neighbor_row, neighbor_column] = True
+            neighbor_elevation = max(float(filled[neighbor_row, neighbor_column]), elevation)
+            filled[neighbor_row, neighbor_column] = neighbor_elevation
+            heapq.heappush(
+                queue,
+                (neighbor_elevation, neighbor_row, neighbor_column),
+            )
+    if np.any(valid & ~closed):
+        raise ValueError("Priority-Flood did not reach every valid DEM cell")
+    return filled
+
+
+def _initial_d8(surface: np.ndarray) -> np.ndarray:
+    valid = np.isfinite(surface)
+    directions = np.full(surface.shape, _NODATA_FLOW, dtype=np.int16)
+    for row, column in zip(*np.nonzero(valid), strict=True):
+        row = int(row)
+        column = int(column)
+        best_direction = _NO_FLOW
+        best_slope = 0.0
+        for direction, neighbor_row, neighbor_column in _neighbors(row, column, surface.shape):
+            if not valid[neighbor_row, neighbor_column]:
+                continue
+            descent = (
+                float(surface[row, column] - surface[neighbor_row, neighbor_column])
+                / _DISTANCES[direction]
+            )
+            if descent > best_slope:
+                best_slope = descent
+                best_direction = direction
+        if best_direction != _NO_FLOW:
+            directions[row, column] = best_direction
+        elif _is_processing_boundary(valid, row, column):
+            directions[row, column] = _FLOW_OUT
+        else:
+            directions[row, column] = _NO_FLOW
+    return directions
+
+
+def resolve_d8_flats(surface: np.ndarray) -> tuple[np.ndarray, np.ndarray, np.ndarray]:
+    """Resolve drainable flats with Barnes Algorithms 1-7 and an integer FlatMask."""
+    values = _dem_array(surface)
+    valid = np.isfinite(values)
+    directions = _initial_d8(values)
+    high_edges: list[tuple[int, int]] = []
+    low_edges: list[tuple[int, int]] = []
+    for row, column in zip(*np.nonzero(valid), strict=True):
+        row = int(row)
+        column = int(column)
+        neighbors = list(_neighbors(row, column, values.shape))
+        if directions[row, column] == _NO_FLOW:
+            if any(
+                valid[neighbor_row, neighbor_column]
+                and values[neighbor_row, neighbor_column] > values[row, column]
+                for _, neighbor_row, neighbor_column in neighbors
+            ):
+                high_edges.append((row, column))
+        elif any(
+            valid[neighbor_row, neighbor_column]
+            and values[neighbor_row, neighbor_column] == values[row, column]
+            and directions[neighbor_row, neighbor_column] == _NO_FLOW
+            for _, neighbor_row, neighbor_column in neighbors
+        ):
+            low_edges.append((row, column))
+
+    labels = np.zeros(values.shape, dtype=np.int64)
+    label = 0
+    for seed_row, seed_column in low_edges:
+        if labels[seed_row, seed_column] != 0:
+            continue
+        label += 1
+        elevation = values[seed_row, seed_column]
+        labels[seed_row, seed_column] = label
+        queue = deque([(seed_row, seed_column)])
+        while queue:
+            row, column = queue.popleft()
+            for _, neighbor_row, neighbor_column in _neighbors(row, column, values.shape):
+                if (
+                    labels[neighbor_row, neighbor_column] == 0
+                    and valid[neighbor_row, neighbor_column]
+                    and values[neighbor_row, neighbor_column] == elevation
+                ):
+                    labels[neighbor_row, neighbor_column] = label
+                    queue.append((neighbor_row, neighbor_column))
+
+    drainable_high_edges = [cell for cell in high_edges if labels[cell] != 0]
+    if len(drainable_high_edges) != len(high_edges):
+        raise ValueError("filled DEM contains an undrainable flat")
+    flat_mask = np.zeros(values.shape, dtype=np.int64)
+    flat_height = np.zeros(label + 1, dtype=np.int64)
+    queue = deque(drainable_high_edges)
+    loops = 1
+    while queue:
+        for _ in range(len(queue)):
+            row, column = queue.popleft()
+            if flat_mask[row, column] > 0:
+                continue
+            flat_mask[row, column] = loops
+            flat_height[labels[row, column]] = loops
+            for _, neighbor_row, neighbor_column in _neighbors(row, column, values.shape):
+                if (
+                    labels[neighbor_row, neighbor_column] == labels[row, column]
+                    and directions[neighbor_row, neighbor_column] == _NO_FLOW
+                ):
+                    queue.append((neighbor_row, neighbor_column))
+        loops += 1
+
+    flat_mask *= -1
+    queue = deque(low_edges)
+    loops = 1
+    while queue:
+        for _ in range(len(queue)):
+            row, column = queue.popleft()
+            if flat_mask[row, column] > 0:
+                continue
+            if flat_mask[row, column] < 0:
+                flat_mask[row, column] += flat_height[labels[row, column]] + 2 * loops
+            else:
+                flat_mask[row, column] = 2 * loops
+            for _, neighbor_row, neighbor_column in _neighbors(row, column, values.shape):
+                if (
+                    labels[neighbor_row, neighbor_column] == labels[row, column]
+                    and directions[neighbor_row, neighbor_column] == _NO_FLOW
+                ):
+                    queue.append((neighbor_row, neighbor_column))
+        loops += 1
+
+    for row, column in zip(*np.nonzero(directions == _NO_FLOW), strict=True):
+        row = int(row)
+        column = int(column)
+        best_mask = flat_mask[row, column]
+        for direction, neighbor_row, neighbor_column in _neighbors(row, column, values.shape):
+            if (
+                labels[neighbor_row, neighbor_column] == labels[row, column]
+                and flat_mask[neighbor_row, neighbor_column] < best_mask
+            ):
+                best_mask = flat_mask[neighbor_row, neighbor_column]
+                directions[row, column] = direction
+        if directions[row, column] == _NO_FLOW:
+            raise ValueError("flat resolution left a valid cell without drainage")
+    return flat_mask, labels, directions
+
+
+def flow_accumulation(directions: np.ndarray) -> np.ndarray:
+    """Count D8 upstream cells, including each valid cell itself."""
+    flow = np.asarray(directions)
+    if flow.ndim != 2 or 0 in flow.shape:
+        raise ValueError("flow directions must be a non-empty two-dimensional array")
+    if np.any(flow == _NO_FLOW) or np.any((flow < _NODATA_FLOW) | (flow > 7)):
+        raise ValueError("flow directions contain unresolved or invalid values")
+    valid = flow != _NODATA_FLOW
+    indegree = np.zeros(flow.shape, dtype=np.int64)
+    for row, column in zip(*np.nonzero(valid), strict=True):
+        direction = int(flow[row, column])
+        if direction < 0:
+            continue
+        row_offset, column_offset = _NEIGHBORS[direction]
+        target = (int(row) + row_offset, int(column) + column_offset)
+        if not (0 <= target[0] < flow.shape[0] and 0 <= target[1] < flow.shape[1]):
+            raise ValueError("stored D8 direction leaves the processing array")
+        if not valid[target]:
+            raise ValueError("stored D8 direction enters nodata")
+        indegree[target] += 1
+    queue = [
+        (int(row), int(column))
+        for row, column in zip(*np.nonzero(valid & (indegree == 0)), strict=True)
+    ]
+    heapq.heapify(queue)
+    accumulation = valid.astype(np.int64)
+    processed = 0
+    while queue:
+        row, column = heapq.heappop(queue)
+        processed += 1
+        direction = int(flow[row, column])
+        if direction < 0:
+            continue
+        row_offset, column_offset = _NEIGHBORS[direction]
+        target = (row + row_offset, column + column_offset)
+        accumulation[target] += accumulation[row, column]
+        indegree[target] -= 1
+        if indegree[target] == 0:
+            heapq.heappush(queue, target)
+    if processed != int(valid.sum()):
+        raise ValueError("D8 flow directions contain a cycle")
+    return accumulation
+
+
+def terrain_feature_arrays(
+    surface: np.ndarray,
+    accumulation: np.ndarray,
+    *,
+    resolution_m: int,
+) -> dict[str, np.ndarray]:
+    """Derive the six frozen terrain features from one conditioned 200 m DSM."""
+    values = _dem_array(surface)
+    upstream = np.asarray(accumulation, dtype=np.int64)
+    if upstream.shape != values.shape or resolution_m <= 0:
+        raise ValueError("terrain inputs must share a valid grid")
+    valid = np.isfinite(values)
+    filled_zero = np.where(valid, values, 0.0)
+    horn_x = np.array([[-1, 0, 1], [-2, 0, 2], [-1, 0, 1]], dtype=np.float64)
+    horn_y = horn_x.T
+    horn_count = convolve(valid.astype(np.int16), np.ones((3, 3), dtype=np.int16), mode="constant")
+    dz_dx = convolve(filled_zero, horn_x, mode="constant") / (8.0 * resolution_m)
+    dz_dy = convolve(filled_zero, horn_y, mode="constant") / (8.0 * resolution_m)
+    slope = np.full(values.shape, np.nan, dtype=np.float64)
+    slope_valid = valid & (horn_count == 9)
+    slope[slope_valid] = np.degrees(np.arctan(np.hypot(dz_dx[slope_valid], dz_dy[slope_valid])))
+
+    window = np.ones((5, 5), dtype=np.int16)
+    count = convolve(valid.astype(np.int16), window, mode="constant")
+    total = convolve(filled_zero, window.astype(np.float64), mode="constant")
+    minimum = minimum_filter(np.where(valid, values, np.inf), size=5, mode="constant", cval=np.inf)
+    maximum = maximum_filter(
+        np.where(valid, values, -np.inf), size=5, mode="constant", cval=-np.inf
+    )
+    relative = np.full(values.shape, np.nan, dtype=np.float64)
+    relief = np.full(values.shape, np.nan, dtype=np.float64)
+    relative[valid] = values[valid] - total[valid] / count[valid]
+    relief_valid = valid & (count >= 13)
+    relief[relief_valid] = maximum[relief_valid] - minimum[relief_valid]
+
+    accumulation_valid = valid & (upstream > 0)
+    log_accumulation = np.full(values.shape, np.nan, dtype=np.float64)
+    log_accumulation[accumulation_valid] = np.log1p(upstream[accumulation_valid] * 0.04)
+    twi = np.full(values.shape, np.nan, dtype=np.float64)
+    twi_valid = accumulation_valid & np.isfinite(slope)
+    specific_area = upstream[twi_valid] * float(resolution_m)
+    clipped_slope = np.maximum(slope[twi_valid], 0.5)
+    twi[twi_valid] = np.log((specific_area + 1.0) / np.tan(np.radians(clipped_slope)))
+    return dict(
+        zip(
+            _TERRAIN_FEATURES,
+            (values.copy(), slope, relative, relief, log_accumulation, twi),
+            strict=True,
+        )
+    )
+
+
+def write_dem_manifest(records: list[SourceRecord], destination: Path) -> Path:
+    """Write the verified DSM source records in the shared source schema."""
+    rows = [
+        {name: getattr(record, name) for name in RAW_SOURCE_COLUMNS}
+        for record in sorted(records, key=lambda item: item.asset_key)
+    ]
+    try:
+        table = pa.Table.from_pylist(rows, schema=RAW_SOURCE_SCHEMA)
+    except pa.ArrowException:
+        raise ValueError("DSM manifest records are invalid") from None
+    destination.parent.mkdir(parents=True, exist_ok=True)
+    partial = destination.with_name(f"{destination.name}.part")
+    pq.write_table(
+        table,
+        partial,
+        compression="zstd",
+        use_dictionary=False,
+        write_statistics=False,
+    )
+    os.replace(partial, destination)
+    return destination
+
+
+def _aligned_bounds(geometry: BaseGeometry, alignment_m: int) -> tuple[float, ...]:
+    min_x, min_y, max_x, max_y = geometry.bounds
+    return (
+        math.floor(min_x / alignment_m) * alignment_m,
+        math.floor(min_y / alignment_m) * alignment_m,
+        math.ceil(max_x / alignment_m) * alignment_m,
+        math.ceil(max_y / alignment_m) * alignment_m,
+    )
+
+
+def _write_raster(
+    destination: Path,
+    array: np.ndarray,
+    *,
+    crs: object,
+    transform: object,
+    dtype: str,
+    nodata: float,
+    description: str,
+    tags: Mapping[str, str],
+) -> Path:
+    destination.parent.mkdir(parents=True, exist_ok=True)
+    partial = destination.with_name(f"{destination.name}.part")
+    profile = {
+        "driver": "GTiff",
+        "width": array.shape[1],
+        "height": array.shape[0],
+        "count": 1,
+        "dtype": dtype,
+        "crs": crs,
+        "transform": transform,
+        "nodata": nodata,
+        "compress": "DEFLATE",
+        "zlevel": 6,
+        "predictor": 3 if dtype == "float64" else 1,
+        "tiled": True,
+        "blockxsize": 256,
+        "blockysize": 256,
+        "BIGTIFF": "IF_SAFER",
+    }
+    with rasterio.open(partial, "w", **profile) as target:
+        target.write(array.astype(dtype, copy=False), 1)
+        target.set_band_description(1, description)
+        target.update_tags(**tags)
+    os.replace(partial, destination)
+    return destination
+
+
+def _write_geoparquet(frame: gpd.GeoDataFrame, destination: Path) -> Path:
+    destination.parent.mkdir(parents=True, exist_ok=True)
+    partial = destination.with_name(f"{destination.name}.part")
+    frame.to_parquet(partial, index=False, compression="zstd", row_group_size=65_536)
+    os.replace(partial, destination)
+    return destination
+
+
+def _write_table(table: pa.Table, destination: Path) -> Path:
+    destination.parent.mkdir(parents=True, exist_ok=True)
+    partial = destination.with_name(f"{destination.name}.part")
+    pq.write_table(
+        table,
+        partial,
+        compression="zstd",
+        use_dictionary=False,
+        write_statistics=False,
+    )
+    os.replace(partial, destination)
+    return destination
+
+
+def _file_record(root: Path, path: Path) -> dict[str, object]:
+    return {
+        "path": path.relative_to(root).as_posix(),
+        "bytes": path.stat().st_size,
+        "sha256": sha256_file(path),
+    }
+
+
+def _read_existing_record(
+    destination: Path,
+    raw_root: Path,
+    tile_id: str,
+) -> SourceRecord | None:
+    receipt = destination.with_name(f"{destination.name}.source.json")
+    if destination.exists() != receipt.exists():
+        raise ValueError("DSM asset and source receipt must exist together")
+    if not destination.exists():
+        return None
+    try:
+        record = SourceRecord(**json.loads(receipt.read_text(encoding="utf-8")))
+    except (OSError, TypeError, ValueError, json.JSONDecodeError):
+        raise ValueError("existing DSM source receipt is invalid") from None
+    if (
+        record.source_id != "cop_dem_glo30_dged_2024_1"
+        or record.asset_key != tile_id
+        or record.relative_path != destination.relative_to(raw_root).as_posix()
+    ):
+        raise ValueError("existing DSM source receipt does not match its tile")
+    return record
+
+
+def _download_tile(
+    session: requests.Session | CdseDownloadSession,
+    raw_root: Path,
+    protocol: LoadedProtocol,
+    tile_id: str,
+    tile: Mapping[str, object],
+) -> tuple[SourceRecord, Path]:
+    source = protocol.sources["cop_dem_glo30_dged_2024_1"]
+    stem = _tile_stem(tile_id)
+    destination = (
+        raw_root
+        / "cop_dem_glo30_dged_2024_1"
+        / str(source["version"])
+        / tile_id
+        / f"{stem}_DEM.tif"
+    )
+    existing = _read_existing_record(destination, raw_root, tile_id)
+    expected_checksums = {"sha256": existing.sha256} if existing is not None else None
+    expected_size = tile.get("bytes")
+    if type(expected_size) is not int or expected_size <= 0:
+        raise ValueError("DSM tile size is invalid")
+    url = build_dsm_download_url(source, tile_id, tile)
+    download = download_http(
+        session,
+        url,
+        destination,
+        asset_identity=f"cop-dem-glo30-dged:2024_1:{tile_id}",
+        expected_size=expected_size,
+        expected_checksums=expected_checksums,
+        timeout=(10, 180),
+    )
+    retrieved_at = (
+        existing.retrieved_at
+        if existing is not None
+        else datetime.now(UTC).replace(microsecond=0).isoformat().replace("+00:00", "Z")
+    )
+    record = SourceRecord(
+        source_id="cop_dem_glo30_dged_2024_1",
+        city_id="all",
+        asset_key=tile_id,
+        provider=str(source["provider"]),
+        version_or_release=str(source["version"]),
+        source_url_or_doi=str(source["doi"]),
+        license=str(source["license"]),
+        privacy_status=str(source["privacy_status"]),
+        reference_date_or_period=str(source["version"]),
+        relative_path=destination.relative_to(raw_root).as_posix(),
+        retrieved_at=retrieved_at,
+        bytes=download.bytes_written,
+        sha256=download.sha256,
+        upstream_checksum_algorithm=None,
+        upstream_checksum=None,
+        request_sha256=sha256_bytes(canonical_json_bytes({"method": "GET", "url": url})),
+        api_version="OData v1",
+    )
+    return record, write_source_receipt(record, raw_root, protocol)
+
+
+def _reproject_tile(
+    source_path: Path,
+    *,
+    crs: object,
+    transform: object,
+    shape: tuple[int, int],
+) -> tuple[np.ndarray, np.ndarray]:
+    destination_elevation = np.full(shape, np.nan, dtype=np.float64)
+    destination_coverage = np.zeros(shape, dtype=np.float64)
+    with rasterio.open(source_path) as source:
+        if source.count != 1 or source.crs is None or source.crs.to_epsg() != 4326:
+            raise ValueError("GLO-30 tile must be a single-band EPSG:4326 raster")
+        masked = source.read(1, masked=True)
+        values = np.asarray(masked.filled(np.nan), dtype=np.float64)
+        valid = (~np.ma.getmaskarray(masked) & np.isfinite(values)).astype(np.float64)
+        reproject(
+            source=np.where(valid > 0, values, np.nan),
+            destination=destination_elevation,
+            src_transform=source.transform,
+            src_crs=source.crs,
+            src_nodata=np.nan,
+            dst_transform=transform,
+            dst_crs=crs,
+            dst_nodata=np.nan,
+            resampling=Resampling.average,
+            num_threads=1,
+            init_dest_nodata=True,
+        )
+        reproject(
+            source=valid,
+            destination=destination_coverage,
+            src_transform=source.transform,
+            src_crs=source.crs,
+            src_nodata=None,
+            dst_transform=transform,
+            dst_crs=crs,
+            dst_nodata=0.0,
+            resampling=Resampling.average,
+            num_threads=1,
+            init_dest_nodata=True,
+        )
+    return destination_elevation, destination_coverage
+
+
+def _process_city(
+    root: Path,
+    city_id: str,
+    tile_ids: tuple[str, ...],
+    tile_paths: Mapping[str, Path],
+    protocol: LoadedProtocol,
+) -> dict[str, object]:
+    city_root = root / "data" / "interim" / city_id
+    aoi = gpd.read_parquet(city_root / "admin_aoi.parquet")
+    candidate = gpd.read_parquet(city_root / "candidate_urban_domain.parquet")
+    candidate = candidate.sort_values(["row", "column"], kind="stable").reset_index(drop=True)
+    resolution = int(protocol.protocol["grid"]["resolution_m"])
+    context_buffer = int(protocol.protocol["terrain"]["context_buffer_m"])
+    bounds = _aligned_bounds(aoi.geometry.iloc[0].buffer(context_buffer), resolution)
+    left, bottom, right, top = bounds
+    shape = (round((top - bottom) / resolution), round((right - left) / resolution))
+    transform = from_origin(left, top, resolution, resolution)
+    observations = [
+        _reproject_tile(tile_paths[tile_id], crs=aoi.crs, transform=transform, shape=shape)
+        for tile_id in tile_ids
+    ]
+    elevation, coverage = combine_dem_observations(
+        [item[0] for item in observations],
+        [item[1] for item in observations],
+    )
+    nodata = -9999.0
+    tags = {
+        "source_id": "cop_dem_glo30_dged_2024_1",
+        "version": "2024_1",
+        "resampling": "average",
+        "vertical_crs": str(protocol.sources["cop_dem_glo30_dged_2024_1"]["vertical_crs"]),
+    }
+    dsm_path = _write_raster(
+        city_root / "dsm_200m_float64.tif",
+        np.where(np.isfinite(elevation), elevation, nodata),
+        crs=aoi.crs,
+        transform=transform,
+        dtype="float64",
+        nodata=nodata,
+        description="elevation_mean",
+        tags=tags,
+    )
+    coverage_path = _write_raster(
+        city_root / "dem_coverage_200m_float64.tif",
+        coverage,
+        crs=aoi.crs,
+        transform=transform,
+        dtype="float64",
+        nodata=nodata,
+        description="dem_valid_fraction",
+        tags=tags,
+    )
+
+    raster_rows = np.floor((top - candidate["center_y"].to_numpy()) / resolution).astype(int)
+    raster_columns = np.floor((candidate["center_x"].to_numpy() - left) / resolution).astype(int)
+    if (
+        raster_rows.min() < 0
+        or raster_columns.min() < 0
+        or raster_rows.max() >= shape[0]
+        or raster_columns.max() >= shape[1]
+    ):
+        raise ValueError(f"WorldCover candidate grid falls outside DSM context for {city_id}")
+    coverage_values = coverage[raster_rows, raster_columns].astype(np.float64, copy=False)
+    threshold = float(protocol.protocol["aoi"]["exclude_dem_coverage_below"])
+    coverage_table = candidate.copy()
+    coverage_table["dem_valid_fraction"] = coverage_values
+    coverage_table["passes_dem_coverage"] = np.isfinite(coverage_values) & (
+        coverage_values >= threshold
+    )
+    coverage_table["feature_stage"] = "dsm_coverage_gate"
+    coverage_table_path = _write_geoparquet(
+        coverage_table,
+        city_root / "dsm_coverage.parquet",
+    )
+    final_grid = apply_dem_coverage_gate(candidate, coverage_values, threshold=threshold)
+    final_grid_path = _write_geoparquet(
+        final_grid,
+        city_root / "final_scorable_grid.parquet",
+    )
+    final_mask = np.full(shape, 255, dtype=np.uint8)
+    final_mask[raster_rows, raster_columns] = 0
+    keep = np.isfinite(coverage_values) & (coverage_values >= threshold)
+    final_mask[raster_rows[keep], raster_columns[keep]] = 1
+    final_mask_path = _write_raster(
+        city_root / "final_scorable_grid.tif",
+        final_mask,
+        crs=aoi.crs,
+        transform=transform,
+        dtype="uint8",
+        nodata=255,
+        description="final_scorable_grid",
+        tags=tags,
+    )
+
+    crowd_source = protocol.sources["crowdflood_v1"]
+    event_name = str(protocol.cities[city_id]["city_event"])
+    event_path = (
+        root
+        / "data"
+        / "raw"
+        / "crowdflood_v1"
+        / str(crowd_source["record_id"])
+        / "events"
+        / f"{event_name.replace(' ', '_')}.csv"
+    )
+    qc, labels = build_label_ledgers(
+        read_crowdflood_rows(event_path),
+        city_id=city_id,
+        city_event=event_name,
+        source_sha256=sha256_file(event_path),
+        aoi=aoi,
+        grid=final_grid,
+        resolution_m=resolution,
+        final_scorable=True,
+    )
+    qc_path, label_path = write_label_ledgers(
+        qc,
+        labels,
+        city_root / "final_label_qc_ledger.parquet",
+        city_root / "final_label_ledger.parquet",
+    )
+    label_record = label_qc_record(qc, labels, event_path, qc_path, label_path)
+    output_paths = [
+        dsm_path,
+        coverage_path,
+        coverage_table_path,
+        final_grid_path,
+        final_mask_path,
+        qc_path,
+        label_path,
+    ]
+    finite = coverage_values[np.isfinite(coverage_values)]
+    if not len(finite):
+        raise ValueError(f"DSM coverage is unavailable for {city_id}")
+    return {
+        "city_id": city_id,
+        "crs": aoi.crs.to_string(),
+        "tile_ids": list(tile_ids),
+        "context_buffer_m": context_buffer,
+        "context_bounds_m": list(bounds),
+        "raster": {"resolution_m": resolution, "shape": list(shape), "dtype": "float64"},
+        "worldcover_candidate_nodes": len(candidate),
+        "excluded_dem_coverage_below_threshold": len(candidate) - len(final_grid),
+        "final_scorable_nodes": len(final_grid),
+        "dem_coverage_threshold": threshold,
+        "dem_valid_fraction": {
+            "minimum": float(finite.min()),
+            "mean": float(finite.mean()),
+            "maximum": float(finite.max()),
+        },
+        "label_remap": {
+            "source": "raw CrowdFlood event CSV",
+            "passes": 1,
+            "spatial_failure_reason": "outside_AOI",
+            "summary": label_record,
+        },
+        "outputs": [_file_record(root, path) for path in output_paths],
+    }
+
+
+def prepare_dsm(root: Path) -> dict[str, object]:
+    """Acquire GLO-30 tiles and form the final scorable grids for both cities."""
+    protocol = load_protocol(root / "configs")
+    source = protocol.sources["cop_dem_glo30_dged_2024_1"]
+    raw_root = root / "data" / "raw"
+    city_ids = ("zhengzhou", "beijing")
+    aois = {
+        city_id: gpd.read_parquet(root / "data" / "interim" / city_id / "admin_aoi.parquet")
+        for city_id in city_ids
+    }
+    selections = select_glo30_tiles(
+        aois,
+        context_buffer_m=int(protocol.protocol["terrain"]["context_buffer_m"]),
+    )
+    configured = source.get("tiles")
+    if not isinstance(configured, Mapping):
+        raise TypeError("GLO-30 tile configuration is missing")
+    tile_ids = tuple(sorted({tile_id for values in selections.values() for tile_id in values}))
+    if set(tile_ids) != set(configured):
+        raise ValueError("buffered AOIs do not match the frozen GLO-30 tile set")
+    tile_config: dict[str, Mapping[str, object]] = {}
+    destinations: dict[str, Path] = {}
+    for tile_id in tile_ids:
+        tile = configured[tile_id]
+        if not isinstance(tile, Mapping):
+            raise TypeError("GLO-30 tile configuration is invalid")
+        tile_config[tile_id] = tile
+        destinations[tile_id] = (
+            raw_root
+            / "cop_dem_glo30_dged_2024_1"
+            / str(source["version"])
+            / tile_id
+            / f"{_tile_stem(tile_id)}_DEM.tif"
+        )
+    planned_bytes = sum(int(tile_config[tile_id]["bytes"]) for tile_id in tile_ids)
+    ensure_free_space(raw_root, planned_bytes)
+    missing = any(not destinations[tile_id].exists() for tile_id in tile_ids)
+    base_session = requests.Session()
+    if missing:
+        with requests.Session() as identity_session:
+            access_token = request_cdse_access_token(identity_session, str(source["identity_url"]))
+        download_session: requests.Session | CdseDownloadSession = CdseDownloadSession(
+            base_session, access_token
+        )
+    else:
+        download_session = base_session
+    records: dict[str, SourceRecord] = {}
+    receipts: dict[str, Path] = {}
+    try:
+        for tile_id in tile_ids:
+            record, receipt = _download_tile(
+                download_session,
+                raw_root,
+                protocol,
+                tile_id,
+                tile_config[tile_id],
+            )
+            records[tile_id] = record
+            receipts[tile_id] = receipt
+    finally:
+        base_session.close()
+    manifest = write_dem_manifest(
+        list(records.values()),
+        root / "artifacts" / "manifests" / "glo30_dsm_tile_manifest.parquet",
+    )
+    tile_paths = {tile_id: raw_root / records[tile_id].relative_path for tile_id in tile_ids}
+    city_reports = [
+        _process_city(root, city_id, selections[city_id], tile_paths, protocol)
+        for city_id in city_ids
+    ]
+    tiles = []
+    for tile_id in tile_ids:
+        record = records[tile_id]
+        tile = tile_config[tile_id]
+        tiles.append(
+            {
+                "tile_id": tile_id,
+                "selected_for": [city_id for city_id in city_ids if tile_id in selections[city_id]],
+                "product_id": str(tile["product_id"]),
+                "product_name": str(tile["product_name"]),
+                "bytes": record.bytes,
+                "sha256": record.sha256,
+                "retrieved_at": record.retrieved_at,
+                "upstream_leaf_checksum": None,
+                "path": f"data/raw/{record.relative_path}",
+                "source_receipt": receipts[tile_id].relative_to(root).as_posix(),
+                "source_receipt_sha256": sha256_file(receipts[tile_id]),
+            }
+        )
+    payload = {
+        "schema_version": 1,
+        "source_id": "cop_dem_glo30_dged_2024_1",
+        "version": str(source["version"]),
+        "dataset": str(source["dataset"]),
+        "doi": str(source["doi"]),
+        "license": str(source["license"]),
+        "privacy_status": str(source["privacy_status"]),
+        "credential_persistence": "none",
+        "manifest": _file_record(root, manifest),
+        "tiles": tiles,
+        "processing": {
+            "horizontal_source_crs": str(source["horizontal_crs"]),
+            "vertical_crs": str(source["vertical_crs"]),
+            "mosaic_precision": "float64",
+            "aggregation": "valid-area-weighted mean to aligned 200 m cells",
+            "coverage_gate": ">= 0.8",
+            "integrity": {
+                "expected_size": "OData leaf ContentLength",
+                "final_hash": "SHA-256",
+                "upstream_leaf_checksum": "not published",
+            },
+            "priority_flood_run": False,
+            "flat_resolution_run": False,
+            "d8_run": False,
+            "flow_accumulation_run": False,
+        },
+        "aoi_stage": "final_scorable",
+        "is_final_scorable": True,
+        "performance_blind": True,
+        "cities": city_reports,
+        "next_stage": "Priority-Flood, flat resolution, D8, and flow accumulation",
+    }
+    report = root / "artifacts" / "reports" / "dsm_final_aoi.json"
+    report.parent.mkdir(parents=True, exist_ok=True)
+    partial = report.with_name(f"{report.name}.part")
+    partial.write_bytes(canonical_json_bytes(payload))
+    os.replace(partial, report)
+    return {
+        "cities": {
+            city["city_id"]: {
+                "worldcover_candidate_nodes": city["worldcover_candidate_nodes"],
+                "excluded_dem_coverage_below_threshold": city[
+                    "excluded_dem_coverage_below_threshold"
+                ],
+                "final_scorable_nodes": city["final_scorable_nodes"],
+            }
+            for city in city_reports
+        },
+        "file_count": len(records),
+        "manifest": str(manifest),
+        "report": str(report),
+        "total_bytes": sum(record.bytes for record in records.values()),
+    }
+
+
+def _process_terrain_city(root: Path, city_id: str, expected_nodes: int) -> dict[str, object]:
+    city_root = root / "data" / "interim" / city_id
+    dsm_path = city_root / "dsm_200m_float64.tif"
+    grid_path = city_root / "final_scorable_grid.parquet"
+    grid = gpd.read_parquet(grid_path).sort_values(["row", "column"], kind="stable")
+    grid = grid.reset_index(drop=True)
+    if len(grid) != expected_nodes:
+        raise ValueError(f"final scorable node baseline changed for {city_id}")
+    with rasterio.open(dsm_path) as source:
+        surface = source.read(1).astype(np.float64, copy=False)
+        if source.nodata is not None:
+            surface = np.where(surface == source.nodata, np.nan, surface)
+        crs = source.crs
+        transform = source.transform
+        bounds = source.bounds
+    resolution = round(float(transform.a))
+    if crs is None or resolution != 200 or not math.isclose(float(-transform.e), 200.0):
+        raise ValueError(f"conditioned DSM grid is invalid for {city_id}")
+
+    filled = priority_flood(surface)
+    flat_mask, labels, directions = resolve_d8_flats(filled)
+    accumulation = flow_accumulation(directions)
+    feature_arrays = terrain_feature_arrays(filled, accumulation, resolution_m=resolution)
+    raster_rows = np.floor((bounds.top - grid["center_y"].to_numpy()) / resolution).astype(int)
+    raster_columns = np.floor((grid["center_x"].to_numpy() - bounds.left) / resolution).astype(int)
+    if (
+        raster_rows.min() < 0
+        or raster_columns.min() < 0
+        or raster_rows.max() >= filled.shape[0]
+        or raster_columns.max() >= filled.shape[1]
+    ):
+        raise ValueError(f"final scorable grid falls outside terrain context for {city_id}")
+    if not np.all(np.isfinite(filled[raster_rows, raster_columns])):
+        raise ValueError(f"final scorable nodes include DSM nodata for {city_id}")
+
+    grid_ids = [str(value) for value in grid["grid_id"]]
+    feature_table = pa.table(
+        {
+            "grid_id": pa.array(grid_ids, type=pa.string()),
+            **{
+                name: pa.array(values[raster_rows, raster_columns], type=pa.float64())
+                for name, values in feature_arrays.items()
+            },
+        }
+    )
+    feature_path = _write_table(feature_table, city_root / "terrain_features.parquet")
+
+    grid_lookup = {
+        (int(row), int(column)): grid_id
+        for row, column, grid_id in zip(raster_rows, raster_columns, grid_ids, strict=True)
+    }
+    edges: list[tuple[str, str, int]] = []
+    for row, column, grid_id in zip(raster_rows, raster_columns, grid_ids, strict=True):
+        direction = int(directions[row, column])
+        if direction < 0:
+            continue
+        row_offset, column_offset = _NEIGHBORS[direction]
+        target = grid_lookup.get((int(row) + row_offset, int(column) + column_offset))
+        if target is not None:
+            edges.append((grid_id, target, direction))
+    edges.sort()
+    edge_table = pa.table(
+        {
+            "source_grid_id": pa.array([edge[0] for edge in edges], type=pa.string()),
+            "target_grid_id": pa.array([edge[1] for edge in edges], type=pa.string()),
+            "direction_code": pa.array([edge[2] for edge in edges], type=pa.int8()),
+            "edge_weight": pa.array(np.ones(len(edges), dtype=np.float64), type=pa.float64()),
+        }
+    )
+    edge_path = _write_table(edge_table, city_root / "d8_edges.parquet")
+
+    tags = {
+        "source_id": "cop_dem_glo30_dged_2024_1",
+        "resolution_m": str(resolution),
+        "neighbor_order": "E,SE,S,SW,W,NW,N,NE",
+    }
+    nodata = -9999.0
+    output_paths = [
+        _write_raster(
+            city_root / "filled_dsm_200m_float64.tif",
+            np.where(np.isfinite(filled), filled, nodata),
+            crs=crs,
+            transform=transform,
+            dtype="float64",
+            nodata=nodata,
+            description="priority_flood_filled_elevation",
+            tags=tags,
+        ),
+        _write_raster(
+            city_root / "flat_mask_200m_int64.tif",
+            np.where(np.isfinite(filled), flat_mask, -1),
+            crs=crs,
+            transform=transform,
+            dtype="int64",
+            nodata=-1,
+            description="barnes_flat_mask",
+            tags=tags,
+        ),
+        _write_raster(
+            city_root / "d8_direction_200m_int16.tif",
+            directions,
+            crs=crs,
+            transform=transform,
+            dtype="int16",
+            nodata=_NODATA_FLOW,
+            description="d8_direction_code",
+            tags=tags,
+        ),
+        _write_raster(
+            city_root / "flow_accumulation_200m_int64.tif",
+            accumulation,
+            crs=crs,
+            transform=transform,
+            dtype="int64",
+            nodata=0,
+            description="upstream_cell_count_including_self",
+            tags=tags,
+        ),
+        feature_path,
+        edge_path,
+    ]
+    missing = {
+        name: int(np.isnan(values[raster_rows, raster_columns]).sum())
+        for name, values in feature_arrays.items()
+    }
+    return {
+        "city_id": city_id,
+        "context_shape": list(filled.shape),
+        "valid_context_cells": int(np.isfinite(filled).sum()),
+        "final_scorable_nodes": len(grid),
+        "flat_cells": int((labels > 0).sum()),
+        "flow_out_context_cells": int((directions == _FLOW_OUT).sum()),
+        "unresolved_context_cells": int((directions == _NO_FLOW).sum()),
+        "g2_edges": len(edges),
+        "feature_missing": missing,
+        "inputs": [_file_record(root, dsm_path), _file_record(root, grid_path)],
+        "outputs": [_file_record(root, path) for path in output_paths],
+    }
+
+
+def prepare_terrain(root: Path) -> dict[str, object]:
+    """Condition both city DSMs and write performance-blind terrain artifacts."""
+    expected_nodes = {"zhengzhou": 25_155, "beijing": 61_443}
+    cities = [
+        _process_terrain_city(root, city_id, expected_nodes[city_id])
+        for city_id in ("zhengzhou", "beijing")
+    ]
+    payload = {
+        "schema_version": 1,
+        "performance_blind": True,
+        "labels_read": False,
+        "source_id": "cop_dem_glo30_dged_2024_1",
+        "processing_domain": "administrative AOI plus 10 km",
+        "precision": "float64",
+        "neighbor_order": ["E", "SE", "S", "SW", "W", "NW", "N", "NE"],
+        "priority_flood_queue_key": ["filled_elevation", "row", "column"],
+        "flat_resolution": {
+            "reference": "Barnes et al. 2014 Algorithms 1-7",
+            "flat_mask_dtype": "int64",
+            "epsilon_dem_modification": False,
+        },
+        "flow_accumulation_includes_self": True,
+        "cities": cities,
+    }
+    report = root / "artifacts" / "reports" / "terrain.json"
+    report.parent.mkdir(parents=True, exist_ok=True)
+    partial = report.with_name(f"{report.name}.part")
+    partial.write_bytes(canonical_json_bytes(payload))
+    os.replace(partial, report)
+    return {"cities": cities, "report": str(report)}

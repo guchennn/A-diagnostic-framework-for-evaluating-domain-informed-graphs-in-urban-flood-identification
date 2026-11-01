@@ -1,0 +1,10 @@
+cff-version: 1.2.0
+message: "Cite this repository and the accompanying manuscript when using the code or aggregate results."
+type: software
+title: "A diagnostic framework for evaluating domain-informed graphs in urban flood identification — code and aggregate results"
+authors:
+  - name: "guchennn"
+repository-code: "https://github.com/guchennn/A-diagnostic-framework-for-evaluating-domain-informed-graphs-in-urban-flood-identification"
+version: "1.0.0"
+date-released: "2026-10-31"
+license: MIT

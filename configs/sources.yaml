@@ -1,0 +1,174 @@
+sources:
+  crowdflood_v1:
+    provider: Zenodo
+    record_id: 19921295
+    concept_id: 19921294
+    record_doi: 10.5281/zenodo.19921295
+    concept_doi: 10.5281/zenodo.19921294
+    filename: CrowdFlood dataset.zip
+    url: https://zenodo.org/api/records/19921295/files/CrowdFlood%20dataset.zip/content
+    bytes: 16290257
+    md5: 53b7389ef3495f172d73d1dc54180518
+    license: CC-BY-4.0
+    privacy_status: processing-only
+
+  geoboundaries_chn_adm2:
+    provider: geoBoundaries
+    commit: 9469f09592ced973a3448cf66b6100b741b64c0d
+    url: https://media.githubusercontent.com/media/wmgeolab/geoBoundaries/9469f09592ced973a3448cf66b6100b741b64c0d/releaseData/gbOpen/CHN/ADM2/geoBoundaries-CHN-ADM2.geojson
+    bytes: 7618692
+    sha256: 2b68d8a808742fc6d7acd769584db960d8fc2c25b9f1d20e3e98c72e9f1c4d34
+    feature_count: 2391
+    crs: OGC:CRS84
+    selectors:
+      zhengzhou:
+        shapeName: Zhengzhoushi
+        shapeID: 17275852B14866353147502
+      beijing:
+        shapeName: Beijingshi
+        shapeID: 17275852B40522342172572
+    license: PDDL-1.0
+    attribution_license: CC-BY-4.0
+    privacy_status: approved
+
+  cop_dem_glo30_dged_2024_1:
+    provider: Copernicus Data Space Ecosystem
+    version: "2024_1"
+    odata_api: https://catalogue.dataspace.copernicus.eu/odata/v1/Products
+    download_api: https://download.dataspace.copernicus.eu/odata/v1
+    identity_url: https://identity.dataspace.copernicus.eu/auth/realms/CDSE/protocol/openid-connect/token
+    collection: CCM
+    dataset: COP-DEM_GLO-30-DGED/2024_1
+    native_product: SAR_DGE_30
+    product_type: SAR_DGE_30_A4AD
+    doi: 10.5270/ESA-c5d3d65
+    elevation_model: DSM
+    editing_level: DGED
+    format: GeoTIFF
+    horizontal_crs: EPSG:4326
+    vertical_crs: EPSG:3855
+    authentication:
+      access: registered-interactive
+      storage: in-memory
+    tiles:
+      N34E113:
+        product_id: 679359b8-91a0-40ba-a5de-40fc4c70e526
+        product_name: DEM1_SAR_DGE_30_20110106T102627_20140818T103011_ADS_000000_Gh4C_296901aa.DEM
+        bytes: 51897972
+      N35E113:
+        product_id: 861f53dd-85a8-44ed-a7d1-27f7638c8d56
+        product_name: DEM1_SAR_DGE_30_20110106T102627_20140915T102132_ADS_000000_hjNA_3612990a.DEM
+        bytes: 51897972
+      N39E115:
+        product_id: 21efee57-54a2-479e-8e04-145c0a2ad78b
+        product_name: DEM1_SAR_DGE_30_20110621T100835_20140910T101318_ADS_000000_xjGl_f98566ca.DEM
+        bytes: 51897972
+      N39E116:
+        product_id: bfe10121-32c7-444a-a217-d9160893d5be
+        product_name: DEM1_SAR_DGE_30_20110530T101101_20140819T101322_ADS_000000_KJ6l_14bb798a.DEM
+        bytes: 51897972
+      N40E115:
+        product_id: c328b460-61e5-4360-a111-3b627a4c2114
+        product_name: DEM1_SAR_DGE_30_20110530T101101_20140830T101324_ADS_000000_mDpo_76e0ef12.DEM
+        bytes: 51897972
+      N40E116:
+        product_id: 41829d3d-52eb-4871-a99d-840b483383dc
+        product_name: DEM1_SAR_DGE_30_20110530T101101_20140819T101322_ADS_000000_3dSj_7bd334a2.DEM
+        bytes: 51897972
+    license: custom
+    license_url: https://dataspace.copernicus.eu/sites/default/files/media/files/2025-06/copernicus_contributing_mission_data_access_v2_cop_dem_licenses.pdf
+    privacy_status: approved
+
+  worldcover_2021_v200:
+    provider: ESA WorldCover
+    version: v200
+    year: 2021
+    url_template: https://esa-worldcover.s3.eu-central-1.amazonaws.com/v200/2021/map/ESA_WorldCover_10m_2021_v200_{ll_tile}_Map.tif
+    s3_url_template: s3://esa-worldcover/v200/2021/map/ESA_WorldCover_10m_2021_v200_{ll_tile}_Map.tif
+    grid_fgb_url: https://esa-worldcover.s3.eu-central-1.amazonaws.com/v200/2021/esa_worldcover_grid.fgb
+    grid_geojson_url: https://esa-worldcover.s3.eu-central-1.amazonaws.com/v200/2021/esa_worldcover_grid.geojson
+    tile_count: 2651
+    classes:
+      tree_cover: 10
+      shrubland: 20
+      grassland: 30
+      cropland: 40
+      built_up: 50
+      bare_sparse_vegetation: 60
+      snow_and_ice: 70
+      permanent_water: 80
+      herbaceous_wetland: 90
+      mangroves: 95
+      moss_and_lichen: 100
+    license: CC-BY-4.0
+    privacy_status: approved
+
+  imerg_v07b:
+    provider: NASA GES DISC
+    short_name: GPM_3IMERGHH
+    version: "07"
+    path_product: GPM_3IMERGHH.07
+    file_version: V07B
+    cmr_concept_id: C2723754847-GES_DISC
+    doi: 10.5067/GPM/IMERG/3B-HH/07
+    authentication:
+      client: earthaccess
+      persist: false
+    retrieval:
+      granules: full
+      server_subset: false
+    variable:
+      path: Grid/precipitation
+      units: mm h-1
+    interval_minutes: 30
+    license: NASA Earth Science Data and Information Policy
+    license_url: https://gpm.nasa.gov/data/policy
+    privacy_status: approved
+
+  ohsome_v1:
+    provider: HeiGIT ohsome API
+    endpoint: https://api.ohsome.org/v1/elements/geometry
+    method: POST
+    timestamp_format: UTC Z
+    properties:
+      - tags
+      - metadata
+    clipGeometry: false
+    spatial_partition_degrees: 0.25
+    filters:
+      roads: "geometry:line and highway=* and not (highway in (construction, proposed, abandoned, razed, platform, raceway, elevator))"
+      waterways: "geometry:line and waterway in (river, stream, canal, drain, ditch)"
+    deduplicate_by:
+      - "@osmId"
+      - "@version"
+    license: ODbL-1.0
+    privacy_status: approved
+
+  worldpop_r2024b:
+    provider: WorldPop
+    release: R2024B
+    version: v1
+    dataset: population_count
+    country: CHN
+    constrained: false
+    resolution_m: 100
+    resolution_arc_seconds: 3
+    units: persons_per_grid_cell
+    status: beta
+    assets:
+      "2021":
+        url: https://data.worldpop.org/GIS/Population/Global_2015_2030/R2024B/2021/CHN/v1/100m/unconstrained/chn_pop_2021_UC_100m_R2024B_v1.tif
+        bytes: 2092461699
+        observed_etag: '"7cb86e83-62dc566df9580"'
+        observed_last_modified: "2025-02-10T08:21:58Z"
+      "2023":
+        url: https://data.worldpop.org/GIS/Population/Global_2015_2030/R2024B/2023/CHN/v1/100m/unconstrained/chn_pop_2023_UC_100m_R2024B_v1.tif
+        bytes: 2138386657
+        observed_etag: '"7f7530e1-62e079e8a4389"'
+        observed_last_modified: "2025-02-13T15:21:59Z"
+    etag_is_checksum: false
+    final_sha256_requirement: download-time
+    asset_license_status: unresolved_per_asset
+    general_license: CC-BY-4.0
+    license_caveat: ODbL inputs may impose additional attribution and share-alike duties.
+    privacy_status: approved

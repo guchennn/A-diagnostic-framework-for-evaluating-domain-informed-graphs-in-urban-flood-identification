@@ -1,0 +1,29 @@
+schema_version: 1
+revision_id: reviewer-revision-v1
+preregistered: false
+reason: Post-review correction and matched architecture controls
+execution: local-cuda-user-authorized
+cities: [zhengzhou, beijing]
+budget: '100'
+outer_folds: [0, 1, 2, 3, 4]
+trajectories: ['1', '2', '3', '4', '5']
+inner_folds: [0, 1, 2]
+configs: [SMALL, MEDIUM]
+outer_seeds: [NEURAL-1, NEURAL-2, NEURAL-3]
+cpu_threads: 1
+xgboost_fixed: {min_child_weight: 0, reg_lambda: 1, reg_alpha: 0, gamma: 0}
+variants:
+  - {id: KDE, model: KDE, graph: NA}
+  - {id: XGBoost, model: XGBoost, graph: NA}
+  - {id: LightGBM, model: LightGBM, graph: NA}
+  - {id: Neighbor-XGB, model: Neighbor-XGB, graph: G1}
+  - {id: MLP, model: MLP, graph: NA}
+  - {id: FF-G0-1, model: Fixed-filter, graph: G0, steps: 1}
+  - {id: FF-G1-1, model: Fixed-filter, graph: G1, steps: 1}
+  - {id: FF-G2-1, model: Fixed-filter, graph: G2, steps: 1}
+  - {id: FF-G2-2, model: Fixed-filter, graph: G2, steps: 2}
+  - {id: SAGE-G0-2, model: GraphSAGE-G2, graph: G0, layers: 2}
+  - {id: SAGE-G1-2, model: GraphSAGE-G2, graph: G1, layers: 2}
+  - {id: SAGE-G2-2, model: GraphSAGE-G2, graph: G2, layers: 2}
+  - {id: SAGE-G2-1, model: GraphSAGE-G2, graph: G2, layers: 1}
+alternative_order: [KDE, XGBoost, LightGBM, Neighbor-XGB, MLP, FF-G2-1]

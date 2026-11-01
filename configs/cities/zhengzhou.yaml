@@ -1,0 +1,24 @@
+city_id: zhengzhou
+city_event: Zhengzhou City_2021_7_19
+timezone: Asia/Shanghai
+event_window:
+  local_start: "2021-07-19T19:03:00+08:00"
+  local_end: "2021-08-04T16:58:00+08:00"
+  utc_start: "2021-07-19T11:03:00Z"
+  utc_end: "2021-08-04T08:58:00Z"
+imerg:
+  inventory_start: "2021-07-16T11:03:00Z"
+  expected_granules: 908
+  inventory_coverage:
+    start: "2021-07-16T11:00:00Z"
+    end: "2021-08-04T08:59:59.999Z"
+    first_filename: 3B-HHR.MS.MRG.3IMERG.20210716-S110000-E112959.0660.V07B.HDF5
+    last_filename: 3B-HHR.MS.MRG.3IMERG.20210804-S083000-E085959.0510.V07B.HDF5
+crs_epsg: 32649
+geoboundaries:
+  shapeName: Zhengzhoushi
+  shapeID: 17275852B14866353147502
+worldpop_year: 2021
+osm_snapshot:
+  policy: event-end
+  timestamp: "2021-08-04T08:58:00Z"

@@ -1,0 +1,8 @@
+variant,predictor,relation
+FF-G0-1,"Fixed propagation, one step",Own attributes
+FF-G1-1,"Fixed propagation, one step",Ordinary adjacency
+FF-G2-1,"Fixed propagation, one step",D8
+SAGE-G0-2,"GraphSAGE, two layers",Own attributes
+SAGE-G1-2,"GraphSAGE, two layers",Ordinary adjacency
+SAGE-G2-2,"GraphSAGE, two layers",D8
+SAGE-G2-1,"GraphSAGE, one layer",D8

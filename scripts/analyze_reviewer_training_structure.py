@@ -1,0 +1,489 @@
+"""Recompute fixed structure decompositions exclusively from the complete new training run."""
+
+from __future__ import annotations
+
+import argparse
+import json
+from pathlib import Path
+
+import numpy as np
+import pandas as pd
+import yaml
+from audit_reviewer_structure import positive_gains
+from summarize_reviewer_training import (
+    check_identity,
+    logical_run_path,
+    metrics_and_signature,
+    validate_selections,
+    validated_seed_frames,
+    verify_provenance,
+)
+
+from floodgnn_ceus.io import sha256_file
+from floodgnn_ceus.supplementary_mechanisms import (
+    CELL_KEYS,
+    COMPARISONS,
+    GROUPS,
+    METHODS,
+    audit_matrix,
+    compute_cells,
+    graph_structure,
+    pair_predictions,
+    support_counts,
+)
+
+VARIANTS = {"SAGE-G0-2": "G0", "SAGE-G2-2": "G2", "FF-G2-1": "Fixed-filter"}
+GROUP_KEYS = ["city", "analysis", "group", "comparison"]
+
+
+def midpoint_ranks(paired: pd.DataFrame) -> pd.DataFrame:
+    """Full-bank midpoint ECDF: (number below + half the number tied) / bank size."""
+    result = paired.copy()
+    for method in METHODS:
+        grouped = result.groupby(CELL_KEYS)[f"score_{method}"]
+        result[f"rank_{method}"] = (grouped.rank(method="average") - 0.5) / grouped.transform(
+            "size"
+        )
+    return result
+
+
+def tie_audit(paired: pd.DataFrame) -> pd.DataFrame:
+    """Aggregate exact saved-score ties in each new model/bank; no individual rows exported."""
+    records = []
+    for key, bank in paired.groupby(CELL_KEYS, sort=True):
+        positive = bank.sample_role.eq("positive").to_numpy()
+        for method in METHODS:
+            _, inverse, counts = np.unique(
+                bank[f"score_{method}"].to_numpy(), return_inverse=True, return_counts=True
+            )
+            sizes = counts[inverse]
+            positive_gap = sizes[positive] / (2 * len(bank))
+            records.append(
+                {
+                    **dict(zip(CELL_KEYS, key, strict=True)),
+                    "method": method,
+                    "bank_size": len(bank),
+                    "positive_cells": int(positive.sum()),
+                    "unique_scores": len(counts),
+                    "constant_bank": len(counts) == 1,
+                    "maximum_tie_size": int(counts.max()),
+                    "tied_positive_fraction": float((sizes[positive] > 1).mean()),
+                    "mean_positive_upper_minus_midpoint": float(positive_gap.mean()),
+                    "max_positive_upper_minus_midpoint": float(positive_gap.max()),
+                }
+            )
+    return pd.DataFrame(records)
+
+
+def background_folds(paired: pd.DataFrame, structure: pd.DataFrame) -> pd.DataFrame:
+    gains = positive_gains(paired).merge(
+        structure[["city", "outer_fold", "grid_id", "K"]],
+        on=["city", "outer_fold", "grid_id"],
+        validate="1:1",
+    )
+    rows = []
+    for city, domain in gains.groupby("city"):
+        domain = domain.assign(overall="all")
+        for analysis, groups in {**GROUPS, "overall": ["all"]}.items():
+            for group in groups:
+                for fold in range(5):
+                    part = domain.loc[domain[analysis].eq(group) & domain.outer_fold.eq(fold)]
+                    for a, b in COMPARISONS:
+                        values = part[f"{a}-{b}"]
+                        metrics = {
+                            "background_mean_gain": values.mean(),
+                            "background_median_gain": values.median() if len(values) else np.nan,
+                            "background_improved_fraction": (values > 0).mean()
+                            if len(values)
+                            else np.nan,
+                            "background_unchanged_fraction": (values == 0).mean()
+                            if len(values)
+                            else np.nan,
+                        }
+                        for metric, value in metrics.items():
+                            rows.append(
+                                {
+                                    "city": city,
+                                    "analysis": analysis,
+                                    "group": group,
+                                    "outer_fold": fold,
+                                    "comparison": f"{a}-{b}",
+                                    "positive_cells": len(values),
+                                    "metric": metric,
+                                    "value": value,
+                                }
+                            )
+    return pd.DataFrame(rows)
+
+
+def summarize_folds(folds: pd.DataFrame, minimum: int = 5) -> tuple[pd.DataFrame, pd.DataFrame]:
+    """Common paired-fold descriptive quantiles, never a replicate-level significance test."""
+    draws = np.random.default_rng(20261011).integers(0, 5, (10000, 5))
+    summaries, lofo = [], []
+    keys = GROUP_KEYS + ["metric"]
+    for key, part in folds.groupby(keys, sort=True):
+        if sorted(part.outer_fold.tolist()) != list(range(5)):
+            raise ValueError("exactly one summary for each of five folds required")
+        part = part.set_index("outer_fold").reindex(range(5))
+        values = part.value.to_numpy(float)
+        valid = np.isfinite(values).all()
+        dense = part.positive_cells.ge(minimum).all()
+        interval = valid and (key[-1] == "ap_contribution" or dense)
+        meta = dict(zip(keys, key, strict=True))
+        quantiles = (
+            np.quantile(values[draws].mean(axis=1), [0.025, 0.975])
+            if interval
+            else [np.nan, np.nan]
+        )
+        summaries.append(
+            {
+                **meta,
+                "mean": values.mean() if valid else np.nan,
+                "resampling_q025": quantiles[0],
+                "resampling_q975": quantiles[1],
+                "status": "missing_fold" if not valid else "complete" if interval else "sparse",
+                "nonempty_folds": int(np.isfinite(values).sum()),
+                "minimum_positive_cells_per_fold": int(part.positive_cells.min()),
+                "positive_folds": int((values > 0).sum()),
+                "negative_folds": int((values < 0).sum()),
+            }
+        )
+        for omitted in range(5):
+            lofo.append(
+                {
+                    **meta,
+                    "omitted_fold": omitted,
+                    "mean": np.delete(values, omitted).mean() if valid else np.nan,
+                }
+            )
+    return pd.DataFrame(summaries), pd.DataFrame(lofo)
+
+
+def paired_range_contrasts(folds: pd.DataFrame) -> pd.DataFrame:
+    keys = ["city", "comparison", "outer_fold", "metric"]
+    eligible = folds.loc[folds.analysis.eq("L") & ~folds.metric.eq("ap_contribution")]
+    joined = eligible.loc[eligible.group.eq("1")].merge(
+        eligible.loc[eligible.group.eq("2")],
+        on=keys,
+        how="outer",
+        validate="1:1",
+        suffixes=("_L1", "_L2"),
+    )
+    result = joined[keys].copy()
+    result["analysis"], result["group"] = "L", "L1-L2"
+    result["value"] = joined.value_L1 - joined.value_L2
+    result["positive_cells"] = joined[["positive_cells_L1", "positive_cells_L2"]].min(
+        axis=1, skipna=False
+    )
+    return result
+
+
+def structure_inputs(
+    root: Path, hashes: dict, reference_structure: Path | None = None
+) -> tuple[pd.DataFrame, pd.DataFrame]:
+    """Rebuild graph labels and optionally verify an explicit archive."""
+    structures, partitions = [], []
+    for city in ("zhengzhou", "beijing"):
+        paths = [
+            root / f"data/interim/{city}/{name}"
+            for name in [
+                "final_scorable_grid.parquet",
+                "graphs/base_edges.parquet",
+                "evaluation_design/outer_partitions.parquet",
+                "graphs/outer_edges.parquet",
+            ]
+        ]
+        for path in paths:
+            hashes[path.relative_to(root).as_posix()] = sha256_file(path)
+        grid = pd.read_parquet(paths[0], columns=["grid_id"])
+        parts = pd.read_parquet(paths[2])
+        structure = graph_structure(
+            grid.grid_id.tolist(),
+            pd.read_parquet(paths[1], filters=[("graph_id", "=", "G2")]),
+            parts,
+            pd.read_parquet(paths[3], filters=[("graph_id", "=", "G2")]),
+        )
+        structures.append(structure.assign(city=city))
+        test = parts.loc[
+            parts.partition.eq("test"), ["grid_id", "outer_fold", "block_row", "block_col"]
+        ].copy()
+        test["outer_block"] = test.block_row.astype(str) + ":" + test.block_col.astype(str)
+        partitions.append(test[["grid_id", "outer_fold", "outer_block"]].assign(city=city))
+    structure = pd.concat(structures, ignore_index=True)
+    if reference_structure is not None:
+        old_path = root / reference_structure
+        hashes[old_path.relative_to(root).as_posix()] = sha256_file(old_path)
+        previous = pd.read_parquet(old_path)
+        columns = ["city", "outer_fold", "grid_id", "A", "L", "K", "indegree_test", "K_test"]
+        pd.testing.assert_frame_equal(
+            structure[columns]
+            .sort_values(["city", "outer_fold", "grid_id"])
+            .reset_index(drop=True),
+            previous[columns].sort_values(["city", "outer_fold", "grid_id"]).reset_index(drop=True),
+        )
+    return structure, pd.concat(partitions, ignore_index=True)
+
+
+def read_new_predictions(outer: list, partitions: pd.DataFrame, config: dict) -> pd.DataFrame:
+    frames, signatures = [], {}
+    for task, path in outer:
+        if task.realization_id not in VARIANTS:
+            continue
+        frame = pd.read_parquet(path)
+        check_identity(frame, task)
+        for _, rows in validated_seed_frames(frame, False, task.seed):
+            _, signature, _, _ = metrics_and_signature(rows)
+            key = (task.city, task.outer_fold, task.trajectory)
+            if signatures.setdefault(key, signature) != signature:
+                raise ValueError("new-run banks/domain disagree across methods or seeds")
+        sample = frame.loc[frame.bank_id.ne("NA")].copy()
+        sample["method"] = VARIANTS[task.realization_id]
+        sample["outer_fold"] = sample.outer_fold.astype(int)
+        sample["bank_id"] = sample.bank_id.astype(int)
+        frames.append(sample)
+    frame = pd.concat(frames, ignore_index=True)
+    audit_matrix(frame, config)
+    frame = frame.merge(
+        partitions, on=["city", "outer_fold", "grid_id"], how="left", validate="m:1"
+    )
+    return pair_predictions(frame)
+
+
+def main() -> None:
+    parser = argparse.ArgumentParser(description=__doc__)
+    parser.add_argument("--root", type=Path, default=Path(__file__).resolve().parents[1])
+    parser.add_argument("--run-root", type=Path, required=True)
+    parser.add_argument(
+        "--output", type=Path, default=Path("results/reviewer_training_structure_20261011")
+    )
+    parser.add_argument("--reference-structure", type=Path, help="Archived node-label parquet")
+    args = parser.parse_args()
+    root = args.root.resolve()
+    run = logical_run_path(root, root / args.run_root)
+    hashes = {}
+    config, grid = verify_provenance(root, run, hashes)
+    _, outer, best = validate_selections(root, run, config, grid, hashes)
+    print("All 1250 inner / 1550 outer receipts and inner-only selections verified.", flush=True)
+    structural_config_path = root / "configs/supplementary_mechanisms_v1.yaml"
+    structural_config = yaml.safe_load(structural_config_path.read_text("utf-8"))
+    hashes[structural_config_path.relative_to(root).as_posix()] = sha256_file(
+        structural_config_path
+    )
+    structure, partitions = structure_inputs(root, hashes, args.reference_structure)
+    paired = read_new_predictions(outer, partitions, structural_config).merge(
+        structure, on=["city", "outer_fold", "grid_id"], how="left", validate="m:1"
+    )
+    if paired[list(GROUPS)].isna().any().any():
+        raise ValueError("missing structure membership")
+    for city, expected in (("zhengzhou", 791), ("beijing", 296)):
+        n = paired.loc[
+            paired.city.eq(city) & paired.sample_role.eq("positive"), "grid_id"
+        ].nunique()
+        if n != expected:
+            raise ValueError("new-run unique positives differ")
+    print("450 new-model refits paired; fixed graph labels recomputed.", flush=True)
+    paired = midpoint_ranks(paired)
+    ties = tie_audit(paired)
+    if len(ties) != 1350:
+        raise ValueError("new-model tie audit must contain 1350 method/bank records")
+    cells, totals = compute_cells(paired)
+    counts = support_counts(paired, structure)
+    folds = (
+        cells.groupby(GROUP_KEYS + ["outer_fold"], as_index=False)
+        .agg(
+            rank_gain=("rank_gain", lambda x: x.mean() if x.notna().all() else np.nan),
+            ap_contribution=("ap_contribution", "mean"),
+            positive_weight_share=("positive_weight_share", "mean"),
+        )
+        .merge(counts, on=["city", "analysis", "group", "outer_fold"], validate="m:1")
+    )
+    total_folds = totals.groupby(["city", "comparison", "outer_fold"], as_index=False)[
+        ["ap_difference", "ap_treatment", "ap_reference"]
+    ].mean()
+    sums = (
+        folds.groupby(["city", "comparison", "outer_fold", "analysis"], as_index=False)[
+            "ap_contribution"
+        ]
+        .sum()
+        .merge(total_folds, on=["city", "comparison", "outer_fold"], validate="m:1")
+    )
+    if not np.allclose(sums.ap_contribution, sums.ap_difference, atol=1e-12, rtol=0):
+        raise ValueError("AP group contributions do not sum to total fold differences")
+    metric_folds = folds.melt(
+        id_vars=GROUP_KEYS + ["outer_fold", "positive_cells"],
+        value_vars=["rank_gain", "ap_contribution"],
+        var_name="metric",
+        value_name="value",
+    )
+    metric_folds["metric"] = metric_folds.metric.replace({"rank_gain": "fullbank_midrank_gain"})
+    metric_folds = pd.concat([metric_folds, background_folds(paired, structure)], ignore_index=True)
+    total_long = total_folds.rename(columns={"ap_difference": "value"}).assign(
+        analysis="overall", group="all", metric="ap_contribution", positive_cells=999999
+    )[metric_folds.columns]
+    # Totals are AP metrics, so no rank-support gate applies; report their actual positive counts.
+    positive_counts = (
+        counts.loc[counts.analysis.eq("A")].groupby(["city", "outer_fold"]).positive_cells.sum()
+    )
+    total_long["positive_cells"] = [
+        positive_counts.loc[row.city, row.outer_fold] for row in total_long.itertuples()
+    ]
+    rank_total = folds.loc[folds.analysis.eq("A")].copy()
+    rank_total["value"] = rank_total.rank_gain * rank_total.positive_weight_share
+    rank_total = (
+        rank_total.groupby(["city", "comparison", "outer_fold"], as_index=False)
+        .agg(value=("value", "sum"), positive_cells=("positive_cells", "sum"))
+        .assign(analysis="overall", group="all", metric="fullbank_midrank_gain")
+    )
+    metric_folds = pd.concat([metric_folds, total_long, rank_total], ignore_index=True)
+    summary, lofo = summarize_folds(metric_folds)
+    range_folds = paired_range_contrasts(metric_folds)
+    range_summary, range_lofo = summarize_folds(range_folds)
+    output = (root / args.output).resolve()
+    if output.exists():
+        raise ValueError("output must be new")
+    output.mkdir(parents=True, exist_ok=True)
+    tables = {
+        "metric_cells.csv": cells,
+        "support_counts.csv": counts,
+        "group_folds.csv": folds,
+        "metric_folds.csv": metric_folds,
+        "metric_summary.csv": summary,
+        "metric_lofo.csv": lofo,
+        "overall_folds.csv": total_folds,
+        "l1_l2_folds.csv": range_folds,
+        "l1_l2_summary.csv": range_summary,
+        "l1_l2_lofo.csv": range_lofo,
+        "ties_banks.csv": ties,
+        "ties_summary.csv": ties.groupby(["city", "method"], as_index=False).agg(
+            method_banks=("constant_bank", "size"),
+            constant_banks=("constant_bank", "sum"),
+            maximum_tie_size=("maximum_tie_size", "max"),
+            mean_positive_upper_minus_midpoint=("mean_positive_upper_minus_midpoint", "mean"),
+            max_positive_upper_minus_midpoint=("max_positive_upper_minus_midpoint", "max"),
+        ),
+    }
+    for name, table in tables.items():
+        table.to_csv(output / name, index=False)
+    readme = """# New-run structure decomposition
+
+Only SAGE-G0-2, SAGE-G2-2 and FF-G2-1 predictions from the complete post-review run are used.
+Each variant has its own inner-only configuration selection. G0/G2/Fixed-filter abbreviations
+refer exclusively to these new variants; do not mix these tables with inherited-G0 results.
+Frozen D8 structure is rebuilt from frozen graphs and splits. Archived labels are checked only
+when --reference-structure is supplied. A: Z0 / Zcut (= Zlost) / Zplus (= Z+).
+L: 0 / 1 / 2. K: 0 / 1 / 2 / 3-4 / 5+. All comparisons use paired fold/trajectory/seed/bank/grid.
+
+The full 1250-inner/1550-outer receipt/hash matrix and independent inner selections are
+revalidated before reading structural results. Of these, the three neural variants contribute
+450 outer refits, 450 paired evaluation banks, and 1,614,195 long prediction rows.
+Only budget 100, STRICT-LOC, FULL-COMMON, uniform reveal is covered.
+
+AP uses non-interpolated thresholds on the complete sampled evaluation bank. Per-positive
+precision contributions sum exactly to each method AP; structural difference contributions
+sum to total paired AP differences in every measurement and fold. Empty groups contribute zero.
+Full-bank positive midpoint rank is (number of bank scores below + half the number tied)/N,
+including the positive itself in the tie count. A constant bank has rank 0.5. Its group mean
+gain is averaged over paired measurements within each fold, then equally over all five folds.
+The 1,350 new method/bank tie records report constant banks, maximal exact tie blocks, and
+upper-ECDF minus midpoint differences for positives (maximal individual difference and mean).
+This diagnostic exclusively audits new scores; it does not relabel the historical tie audit.
+Background-only midrank uses the complete background in each bank and half credit for ties.
+For background summaries, each unique positive's gain is first averaged over banks, seeds,
+and trajectories; fold group mean, median and improved/unchanged fractions are then computed.
+Thus the median/fraction summaries are means of five fold summaries, not pooled-positive values.
+
+All intervals are descriptive common five-fold bootstrap quantiles (10,000 draws; seed 20261011),
+not significance tests or independent seed/positive intervals. Rank intervals require at least
+5 distinct positives in every fold. Missing groups suppress five-fold rank means and intervals;
+sparse nonempty groups retain means but suppress intervals. AP includes all folds and zero groups.
+LOFO omits each fold in turn. L1-L2 differences are paired within the same fold before averaging.
+No multiple-comparison significance claims or causal propagation claims follow from these groups.
+Only aggregate tables are exported. Group labels and sparse rules match the original analysis.
+
+Run: `.venv/Scripts/python.exe scripts/analyze_reviewer_training_structure.py`
+"""
+    (output / "README.md").write_text(readme, encoding="utf-8")
+    conclusion = [
+        "# 新训练结果的结构重分析\n",
+        "所有数值均来自 reviewer-revision-v1-0d119f16fcb9；G0 已独立内选，不能与旧继承选模结果混用。",
+        "下表为 G2−G0 五折等权均值；括号为描述性折重采样分位区间，不作显著性检验。\n",
+        "| 城市 | 分组 | 指标 | 均值 [q025, q975] | 正值折数 |",
+        "|---|---|---|---|---|",
+    ]
+    chosen = summary.loc[
+        summary.comparison.eq("G2-G0")
+        & (
+            (
+                summary.analysis.eq("overall")
+                & summary.metric.isin(
+                    ["ap_contribution", "fullbank_midrank_gain", "background_mean_gain"]
+                )
+            )
+            | (
+                summary.analysis.eq("L")
+                & summary.metric.isin(
+                    [
+                        "fullbank_midrank_gain",
+                        "background_mean_gain",
+                        "background_improved_fraction",
+                    ]
+                )
+            )
+        )
+    ]
+    for row in chosen.itertuples():
+        conclusion.append(
+            f"| {row.city} | {row.analysis}:{row.group} | {row.metric} | "
+            f"{row.mean:+.6f} [{row.resampling_q025:+.6f}, {row.resampling_q975:+.6f}] | "
+            f"{row.positive_folds}/5 |"
+        )
+    conclusion.extend(
+        [
+            "\n新结果不支持继续使用北京总体 AP 正增益的旧结论：两城总体 G2−G0 AP 均为负。",
+            (
+                "L1 的平均全 bank midpoint rank 与背景 midrank 改善在两城仍为正，"
+                "但两城描述区间均跨零，不能表述为普遍或稳健显著改善。"
+            ),
+            (
+                "北京 L2 背景秩差为负；L1−L2 对比五折均为正。郑州 L1−L2 平均差为正，"
+                "但描述区间跨零。结构分组是关联描述，不构成传播深度的因果识别。"
+            ),
+            (
+                "替换主文图/表：metric_summary.csv 提供 A/L/K 效应与区间，"
+                "metric_folds.csv 与 metric_lofo.csv 提供折值和敏感性；support_counts.csv 提供样本数。"
+            ),
+            (
+                "l1_l2_* 提供折配对深度差；ties_* 仅审计新模型的 1,350 个 bank-model，"
+                "旧 upper-rank 审计应标为 historical。"
+            ),
+        ]
+    )
+    (output / "conclusions_zh.md").write_text("\n".join(conclusion) + "\n", encoding="utf-8")
+    code_paths = [
+        Path(__file__),
+        Path(__file__).with_name("audit_reviewer_structure.py"),
+        Path(__file__).with_name("summarize_reviewer_training.py"),
+        Path(__file__).with_name("analyze_reviewer_revision.py"),
+    ]
+    for path in code_paths:
+        hashes[path.relative_to(root).as_posix()] = sha256_file(path)
+    manifest = {
+        "status": "complete",
+        "run_namespace": run.name,
+        "variants": VARIANTS,
+        "verified_inner_candidates": 1250,
+        "verified_outer_refits": len(outer),
+        "selection_units": len(best),
+        "structure_refits": 450,
+        "old_scores_used": False,
+        "source_hashes": hashes,
+        "outputs": {
+            name: sha256_file(output / name) for name in [*tables, "README.md", "conclusions_zh.md"]
+        },
+    }
+    (output / "manifest.json").write_text(json.dumps(manifest, indent=2) + "\n", encoding="utf-8")
+    print(f"New-run aggregate structure results written to {output}", flush=True)
+
+
+if __name__ == "__main__":
+    main()

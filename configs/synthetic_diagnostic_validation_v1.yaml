@@ -1,0 +1,26 @@
+schema_version: 1
+protocol_id: synthetic-diagnostic-validation-v1-20261012
+purpose: Independent recovery check of ranking and structural accounting, not FF/SAGE optimization.
+generation_seeds: [6101201, 6101202, 6101203, 6101204, 6101205, 6101206, 6101207, 6101208, 6101209, 6101210]
+grid_rows: 96
+grid_columns: 48
+train_rows: [0, 32]
+validation_rows: [36, 60]
+test_rows: [64, 96]
+feature_count: 3
+label_intercept: -2.0
+own_coefficient: 0.5
+upstream_coefficient: 2.0
+random_label_probability: 0.2
+regularization_candidates: [0.001, 0.01, 0.1]
+optimizer_max_iterations: 300
+conditions: [useful, irrelevant, degree_preserving_wrong, boundary_truncated, random_label]
+primary_metrics: [full_domain_ap, full_domain_pb_auc]
+selection_metric: full_domain_validation_ap
+predeclared_checks:
+  - Useful relation has positive AP and PB-AUC gain over own-only in the majority of replicates.
+  - Useful relation outperforms irrelevant and degree-preserving wrong relation in the majority.
+  - Random-label gains and any false-positive recoveries are reported without exclusion.
+  - Truncation losses are compared directly between cut and retained support groups.
+inference: Replicate ranges and counts are descriptive; no tuning after test scores.
+labels: Fully observed synthetic binary outcomes; no claim of simulating the real reporting mechanism.

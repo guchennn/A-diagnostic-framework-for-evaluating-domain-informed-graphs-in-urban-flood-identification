@@ -1,0 +1,86 @@
+schema_version: 1
+protocol_id: FloodGNN-CEUS-ZZ-BJ-v1.0
+amendment_version: v1.2
+freeze_sha: 29173eb80d357827cd8c2527ff6766faab0c37c1
+city: zhengzhou
+
+# ---------------------------------------------------------------------------
+# RQ3 (conditional graph-scale novelty) frozen decisions.
+# Written BEFORE any RQ3 rank-gain is computed. This file is the authoritative
+# machine-readable encoding of the freeze; docs/rq3_freeze_decision.md is the
+# prose record. Changing any value here after inspection is a protocol change.
+# ---------------------------------------------------------------------------
+
+feature_membership:
+  # The 3 IMERG (rainfall) features are near-constant at graph scale and are
+  # excluded by construction; the other 15 are graph-resolvable.
+  excluded_rainfall_features:
+    - event_rainfall_total
+    - max_6h_rainfall
+    - antecedent_72h_rainfall
+  graph_resolvable_features:
+    - elevation_mean
+    - slope_mean
+    - relative_elevation_1km
+    - local_relief_1km
+    - log_flow_accumulation
+    - twi
+    - built_up_fraction
+    - water_fraction
+    - vegetation_fraction
+    - cropland_fraction
+    - road_length_density
+    - waterway_length_density
+    - distance_to_nearest_waterway
+    - distance_to_WorldCover_waterbody
+    - log1p_population_density
+  secondary_axes:
+    - built_up_fraction
+    - relative_elevation_1km
+
+neighborhood:
+  graph_id: G2
+  direction: incoming_upstream
+  max_hops: 2
+  deduplicate: true
+  exclude_self: true
+  # N2_G2(i) is non-empty iff G2 in-degree(i) >= 1, so a node is
+  # graph-resolvable exactly when it has at least one upstream neighbour.
+
+novelty:
+  # z = (x - mean) / std, with mean/std over graph-resolvable nodes (population
+  # std). Applied to every node so that neighbour differences use one scale.
+  standardization_scope: graph_resolvable_nodes
+  standardization_ddof: 0
+  formula: mean_{j in N2_G2(i)} | z_i - z_j |
+  composite: mean over graph_resolvable_features of per-feature novelty
+
+stratification:
+  method: city_specific_tertiles
+  scope: graph_resolvable_nodes_only
+  # Rank-based equal thirds over a stable (composite, grid_id) sort; 12285
+  # resolvable nodes -> exactly 4095 per stratum.
+  assignment: stable_rank_thirds
+
+outcome:
+  source: artifacts/runtime/decisive-full-zz-20260908/oof_banks.parquet
+  method: G2
+  budget: FULL
+  # A positive test cell's percentile-rank = fraction of its bank's cells
+  # (positive + background) with OOF score <= the cell's score (ECDF).
+  percentile_rank: fraction_le
+
+inference:
+  top_level_unit: outer_fold
+  # G_{f,stratum} = mean percentile-rank over graph-resolvable positive test
+  # cells of that novelty stratum within outer fold f (pooled over seeds/banks).
+  fold_interaction: I_f = G_f,high - G_f,low
+  estimand: Delta_novelty = mean_high - mean_low
+  bootstrap:
+    replicates: 10000
+    random_generator: PCG64DXSM
+    seed_name: "{protocol_id}/zhengzhou/rq3-conditional-novelty"
+    unit: outer_fold
+  secondary_contrasts:
+    - medium-low
+    - high-medium

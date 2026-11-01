@@ -1,0 +1,137 @@
+schema_version: 1
+protocol_id: FloodGNN-CEUS-ZZ-BJ-v1.0
+amendment_version: v1.2
+amendment_document: docs/post_e1_analysis_amendment.md
+supersedes: v1.1
+
+e3_performance_inspection:
+  status: uninspected
+  allowed_values:
+    - uninspected
+    - partially_inspected
+    - inspected
+  inspected_artifacts: []
+  inspected_comparisons: []
+  downgrade_rule: >
+    status != uninspected downgrades the corresponding RQ4 comparisons to
+    retrospective / descriptive.
+
+metric:
+  primary: PB-AUPRC
+  secondary: AUROC
+  scale: percentage-point increments (x100)
+
+resampling:
+  bootstrap_replicates: 10000
+  random_generator: PCG64DXSM
+  top_level_unit: outer_fold
+  top_level_unit_rationale: >
+    all held-out blocks within a fold share one fitted model; blocks may be
+    resampled only within a resampled outer fold in secondary analyses.
+  preserve_within_fold: [trajectory, seed, bank_id, positive_cells, spatial_structure]
+
+rq1_average_increment:
+  status: retrospective
+  estimand: paired PB-AUPRC increment of G2 over control
+  controls:
+    - A* (inner-selected best alternative)
+    - G0
+    - MLP
+    - G1
+    - Fixed-filter
+    - Neighbor-XGB
+  reporting: effect sizes with 95% intervals; original gates descriptive, not prerequisites
+
+rq2_substitution:
+  status: split
+  retrospective:
+    status: retrospective
+    artifact: artifacts/runtime/feature-ablation-reselect-20260925/
+    regimes:
+      F18: full
+      F16: noD8
+      F14: noNeigh
+    budget: FULL
+    finding: >
+      dropping the D8-flow features then the neighbourhood/flow features does not
+      materially change G2 relative to XGBoost / G0 / G1.
+  prospective:
+    status: prospective
+    estimand: scarcity x feature-set interaction anchored to the observed FULL baseline
+    D_definition: >
+      D(F, b) = graph increment (G2 - baseline) at feature set F and budget b,
+      computed per fixed baseline (XGBoost, G0, G1).
+    S_definition: S(F) = D(F, 100) - D(F, FULL)
+    interactions:
+      I_noD8: S(F16) - S(F18)
+      I_noNeigh: S(F14) - S(F18)
+    budgets: [100]
+    budgets_excluded_confirmatory: [20]
+    feature_sets: [F18, F16-noD8, F14-noNeigh]
+    selection_rule: inherit the FULL feature-ablation inner-selection rule
+    confirmatory_family: [I_noD8, I_noNeigh]
+    multiple_testing:
+      method: Holm
+      alpha: 0.05
+
+rq3_conditional_novelty:
+  status: prospective
+  framing: >
+    exploratory mechanism test; given the near-null average increment and its
+    robustness to feature ablation, a positive novelty interaction is not assumed.
+  novelty:
+    formula: novelty_z(i) = mean_{j in N2_G2(i)} | z_i - z_j |
+    neighborhood: >
+      N2_G2(i) = unique nodes able to reach i within at most two directed G2 edges
+      (incoming upstream neighbourhood).
+    primary_axis:
+      name: composite graph novelty
+      definition: standardized average of novelty_z over the graph-resolvable (non-rainfall) features
+      strata: [Low, Medium, High]
+      stratification: city-specific tertiles
+      freeze_before_inspection: [thresholds, feature_membership]
+    secondary_axes: [built_up_fraction, relative_elevation_1km]
+    secondary_axes_role: interpretation only; no per-axis confirmatory thresholds or multiplicity
+  outcome: percentile-rank of each positive test cell OOF score within its bank
+  inference:
+    cell_role: effect measurement, not an independent replicate
+    top_level_unit: outer_fold
+    per_fold: mean rank gain for Low/Medium/High positive cells -> G_f,l / G_f,m / G_f,h
+    fold_interaction: I_f = G_f,h - G_f,l
+    bootstrap: >
+      resample the 5 outer folds, carrying each resampled fold's trajectory, seed,
+      positive cells, and spatial structure together.
+    estimand: Delta_novelty = mean_high - mean_low
+    secondary: hierarchical block resample only within a resampled outer fold
+
+rq4_observation_label_layout:
+  status: depends_on_e3_performance_inspection
+  framework: configs/sensitivity_config.yaml
+  mechanisms: [population-weighted, clustered]
+  trajectories: [1, 2, 3]
+  inherit: E1 model selection/configuration/epoch/seeds/graph/banks
+  hpo: forbidden
+
+imerg_diagnostic:
+  type: low-novelty reference / structural negative-control diagnostic
+  status: retrospective
+  evidence:
+    unique_native_pixels: {zhengzhou: 18, beijing: 49}
+    neighbours_sharing_pixel: {zhengzhou: 0.970, beijing: 0.968}
+    single_pixel_1hop: {zhengzhou: 0.952, beijing: 0.954}
+    single_pixel_2hop: {zhengzhou: 0.902, beijing: 0.907}
+  narrow_claim_only: true
+
+fold_effect_diagnostic:
+  type: diagnostic visualization, not a spatial-heterogeneity test
+  status: retrospective
+  contrasts: [G2-XGBoost, G2-G0, G2-G1]
+  source: artifacts/runtime/decisive-full-zz-20260908/model_cell_metrics.csv
+  script: figures/fold_effect_diagnostic.py
+
+reporting:
+  effect_sizes_and_intervals_primary: true
+  p_values_two_sided: true
+  holm_family: rq2_substitution.prospective.confirmatory_family
+  privacy: >
+    aggregate only; no node IDs, coordinates, raw predictions, or restricted label ledgers.

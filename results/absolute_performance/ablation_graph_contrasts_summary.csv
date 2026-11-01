@@ -1,0 +1,25 @@
+city,budget,feature_set,contrast,effect,n_folds,resampling_q025,resampling_q975,interval_status
+zhengzhou,100,F18,G2-G0,-0.015467787265813715,5,-0.029904530356928184,-0.002300262585598435,saved 10000-draw fold resampling endpoints; historical CI labels are descriptive only
+zhengzhou,100,F18,G2-G1,-0.025192510677053904,5,-0.035979421161195235,-0.014327933955303157,saved 10000-draw fold resampling endpoints; historical CI labels are descriptive only
+zhengzhou,100,F18,G2-XGB,-0.02573761356358285,5,-0.04106915656814818,-0.011001933104709781,saved 10000-draw fold resampling endpoints; historical CI labels are descriptive only
+zhengzhou,100,F18,G1-G0,0.009724723411240189,5,,,UNAVAILABLE in inspected existing outputs
+zhengzhou,100,F16-noD8,G2-G0,-0.016069719659705495,5,-0.029823595075123,-0.0037460628789431592,saved 10000-draw fold resampling endpoints; historical CI labels are descriptive only
+zhengzhou,100,F16-noD8,G2-G1,-0.02292148818366415,5,-0.03224102060476298,-0.013202917405023128,saved 10000-draw fold resampling endpoints; historical CI labels are descriptive only
+zhengzhou,100,F16-noD8,G2-XGB,-0.013444185848361389,5,-0.02490653912562966,-0.001069922693583504,saved 10000-draw fold resampling endpoints; historical CI labels are descriptive only
+zhengzhou,100,F16-noD8,G1-G0,0.006851768523958657,5,,,UNAVAILABLE in inspected existing outputs
+zhengzhou,100,F14-noNeigh,G2-G0,-0.016949341002460337,5,-0.028106721805316405,-0.005628369660839211,saved 10000-draw fold resampling endpoints; historical CI labels are descriptive only
+zhengzhou,100,F14-noNeigh,G2-G1,-0.026018827360404718,5,-0.03590221871361357,-0.018195467895297586,saved 10000-draw fold resampling endpoints; historical CI labels are descriptive only
+zhengzhou,100,F14-noNeigh,G2-XGB,-0.018676954210556408,5,-0.026418635299378743,-0.010982529011176006,saved 10000-draw fold resampling endpoints; historical CI labels are descriptive only
+zhengzhou,100,F14-noNeigh,G1-G0,0.009069486357944379,5,,,UNAVAILABLE in inspected existing outputs
+zhengzhou,FULL,F18,G2-G0,-0.013334368763621152,5,-0.022929630189653705,0.0009583594115987748,saved 10000-draw fold resampling endpoints; historical CI labels are descriptive only
+zhengzhou,FULL,F18,G2-G1,-0.020698336940387963,5,-0.03309808010243499,-0.0064232510980508865,saved 10000-draw fold resampling endpoints; historical CI labels are descriptive only
+zhengzhou,FULL,F18,G2-XGB,0.0030316746225791504,5,-0.0064513821867616785,0.01431214833926463,saved 10000-draw fold resampling endpoints; historical CI labels are descriptive only
+zhengzhou,FULL,F18,G1-G0,0.007363968176766811,5,0.0008287025961825067,0.012040271880668908,saved 10000-draw fold resampling endpoints; historical CI labels are descriptive only
+zhengzhou,FULL,F16-noD8,G2-G0,-0.012995336795734735,5,-0.036369531982071546,0.013782335226767506,saved 10000-draw fold resampling endpoints; historical CI labels are descriptive only
+zhengzhou,FULL,F16-noD8,G2-G1,-0.021792219104768574,5,-0.03331109115112667,-0.007619211017521976,saved 10000-draw fold resampling endpoints; historical CI labels are descriptive only
+zhengzhou,FULL,F16-noD8,G2-XGB,0.006062045906383118,5,-0.010413798224966343,0.02336372798846218,saved 10000-draw fold resampling endpoints; historical CI labels are descriptive only
+zhengzhou,FULL,F16-noD8,G1-G0,0.008796882309033837,5,-0.008865379401215378,0.025204637350200808,saved 10000-draw fold resampling endpoints; historical CI labels are descriptive only
+zhengzhou,FULL,F14-noNeigh,G2-G0,-0.011384596357405418,5,-0.024970346452582604,0.004470589475305242,saved 10000-draw fold resampling endpoints; historical CI labels are descriptive only
+zhengzhou,FULL,F14-noNeigh,G2-G1,-0.01698701133464291,5,-0.028688960059245084,-0.002592093719135624,saved 10000-draw fold resampling endpoints; historical CI labels are descriptive only
+zhengzhou,FULL,F14-noNeigh,G2-XGB,0.00791804799345821,5,-0.0017480857354386426,0.017584181722355062,saved 10000-draw fold resampling endpoints; historical CI labels are descriptive only
+zhengzhou,FULL,F14-noNeigh,G1-G0,0.005602414977237491,5,6.758458221223229e-05,0.010014073089188735,saved 10000-draw fold resampling endpoints; historical CI labels are descriptive only

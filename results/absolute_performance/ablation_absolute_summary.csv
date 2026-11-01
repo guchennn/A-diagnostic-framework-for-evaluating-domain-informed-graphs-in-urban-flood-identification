@@ -1,0 +1,25 @@
+city,budget,method,feature_set,sampled_pb_ap,n_folds,full_background_ap,full_weighted_1to10_ap,recall_top_10pct,other_metrics_status
+zhengzhou,FULL,XGB,F18,0.28758160609802697,5,,,,not present in the inspected existing ablation aggregate outputs; not recomputed
+zhengzhou,FULL,G0,F18,0.3039476494842273,5,,,,not present in the inspected existing ablation aggregate outputs; not recomputed
+zhengzhou,FULL,G1,F18,0.3113116176609941,5,,,,not present in the inspected existing ablation aggregate outputs; not recomputed
+zhengzhou,FULL,G2,F18,0.29061328072060616,5,,,,not present in the inspected existing ablation aggregate outputs; not recomputed
+zhengzhou,FULL,XGB,F16-noD8,0.2869828805298717,5,,,,not present in the inspected existing ablation aggregate outputs; not recomputed
+zhengzhou,FULL,G0,F16-noD8,0.3060402632319896,5,,,,not present in the inspected existing ablation aggregate outputs; not recomputed
+zhengzhou,FULL,G1,F16-noD8,0.3148371455410234,5,,,,not present in the inspected existing ablation aggregate outputs; not recomputed
+zhengzhou,FULL,G2,F16-noD8,0.2930449264362548,5,,,,not present in the inspected existing ablation aggregate outputs; not recomputed
+zhengzhou,FULL,XGB,F14-noNeigh,0.28710832362045463,5,,,,not present in the inspected existing ablation aggregate outputs; not recomputed
+zhengzhou,FULL,G0,F14-noNeigh,0.3064109679713183,5,,,,not present in the inspected existing ablation aggregate outputs; not recomputed
+zhengzhou,FULL,G1,F14-noNeigh,0.31201338294855574,5,,,,not present in the inspected existing ablation aggregate outputs; not recomputed
+zhengzhou,FULL,G2,F14-noNeigh,0.2950263716139128,5,,,,not present in the inspected existing ablation aggregate outputs; not recomputed
+zhengzhou,100,G0,F14-noNeigh,0.2900731726405809,5,,,,not present in the inspected existing ablation aggregate outputs; not recomputed
+zhengzhou,100,G0,F16-noD8,0.28905740383658934,5,,,,not present in the inspected existing ablation aggregate outputs; not recomputed
+zhengzhou,100,G0,F18,0.2754200947925391,5,,,,not present in the inspected existing ablation aggregate outputs; not recomputed
+zhengzhou,100,G1,F14-noNeigh,0.29914265899852527,5,,,,not present in the inspected existing ablation aggregate outputs; not recomputed
+zhengzhou,100,G1,F16-noD8,0.29590917236054803,5,,,,not present in the inspected existing ablation aggregate outputs; not recomputed
+zhengzhou,100,G1,F18,0.28514481820377935,5,,,,not present in the inspected existing ablation aggregate outputs; not recomputed
+zhengzhou,100,G2,F14-noNeigh,0.27312383163812054,5,,,,not present in the inspected existing ablation aggregate outputs; not recomputed
+zhengzhou,100,G2,F16-noD8,0.27298768417688385,5,,,,not present in the inspected existing ablation aggregate outputs; not recomputed
+zhengzhou,100,G2,F18,0.25995230752672543,5,,,,not present in the inspected existing ablation aggregate outputs; not recomputed
+zhengzhou,100,XGB,F14-noNeigh,0.29180078584867697,5,,,,not present in the inspected existing ablation aggregate outputs; not recomputed
+zhengzhou,100,XGB,F16-noD8,0.2864318700252452,5,,,,not present in the inspected existing ablation aggregate outputs; not recomputed
+zhengzhou,100,XGB,F18,0.2856899210903082,5,,,,not present in the inspected existing ablation aggregate outputs; not recomputed

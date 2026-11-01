@@ -1,0 +1,94 @@
+schema_version: 1
+protocol_id: FloodGNN-CEUS-ZZ-BJ-v1.0
+amendment_version: v1.2
+freeze_sha: 29173eb80d357827cd8c2527ff6766faab0c37c1
+city: zhengzhou
+
+# ---------------------------------------------------------------------------
+# RQ2 (prospective scarcity x feature-set substitution) frozen decisions.
+# Written BEFORE any n+=100 scarcity contrast (S(F), I_noD8, I_noNeigh) is
+# computed. The retrospective FULL-budget ablation (Section 2/3) is already
+# observed; its increments enter as fixed points. Changing any value here after
+# inspection is a protocol change.
+# ---------------------------------------------------------------------------
+
+feature_membership:
+  # Authoritative definitions in configs/feature_sets_v1_2.yaml.
+  F18:
+    description: full 18-feature set (reference)
+    dropped: []
+  F16-noD8:
+    description: drop the two D8-flow-derived features
+    dropped: [log_flow_accumulation, twi]
+  F14-noNeigh:
+    description: drop the four neighbourhood/flow-derived features
+    dropped: [relative_elevation_1km, local_relief_1km, log_flow_accumulation, twi]
+  feature_sets: [F18, F16-noD8, F14-noNeigh]
+
+budget:
+  confirmatory: ["100"]
+  excluded_descriptive_only: ["20"]
+
+methods:
+  treatment: G2
+  controls:
+    - {label: XGB, family: XGBoost, graph_id: "NA", role: secondary}
+    - {label: G0, family: GraphSAGE-G2, graph_id: "G0", role: primary}
+    - {label: G1, family: GraphSAGE-G2, graph_id: "G1", role: secondary}
+  # G0 (no-graph) is the primary confirmatory baseline: D = G2 - G0 is the
+  # D8-flow graph's own increment. XGBoost and G1 are secondary/descriptive.
+
+inner_selection:
+  families: [XGBoost, GraphSAGE-G2]
+  configs: [SMALL, MEDIUM]
+  rule: best mean inner PB-AUPRC per family, tie-break SMALL<MEDIUM, per outer fold
+  inner_folds: [0, 1, 2]
+  outer_folds: [0, 1, 2, 3, 4]
+  trajectories: ["1", "2", "3", "4", "5"]
+  # GraphSAGE-G2 inner CV selects its config on G2 edges; the selected config is
+  # reused for G0 and G1 outer refits (same architecture, different graph_id).
+
+outer_refit:
+  seed_slots: [NEURAL-1, NEURAL-2, NEURAL-3]   # GNN uses 3 slots; XGBoost deterministic (1 slot)
+  banks: 3
+  epochs: median of the three selected inner-fold best epochs
+
+outcome:
+  metric: PB-AUPRC (weighted average precision)
+  increment: D(F, b) = G2 - baseline, per baseline in {XGB, G0, G1}
+  scarcity_effect: S(F) = D(F, 100) - D(F, FULL)
+  interactions:
+    I_noD8: S(F16-noD8) - S(F18)
+    I_noNeigh: S(F14-noNeigh) - S(F18)
+
+full_side:
+  # Already observed (retrospective, Section 2/3); treated as fixed point values.
+  # D(F, FULL) and the FULL feature-set interactions are read from this file at
+  # run time; their uncertainty is characterized retrospectively and does not
+  # re-enter the prospective interaction bootstrap.
+  source: results/feature_ablation/inference.csv
+  source_sha256: efea8a20b4f457e847e53ebaab5392091d396b02d9a299d68f56e6141b89da41
+  manifest_sha256: 92c4aa3ebfdc309eea3f681ab28a21f710bab79f3fa04bfa74ed39ca3b354623
+
+inference:
+  top_level_unit: outer_fold
+  preserve_within_fold: [trajectory, seed, bank_id, positive_cells, spatial_structure]
+  bootstrap:
+    replicates: 10000
+    random_generator: PCG64DXSM
+    seed_name: "{protocol_id}/zhengzhou/rq2-scarcity"
+    unit: outer_fold   # primary: resample the 5 outer folds with replacement
+    secondary_sensitivity: >
+      resampling spatial blocks within a resampled outer fold, or trajectory/seed
+      positions, is a secondary sensitivity and does not produce the confirmatory
+      interval.
+  interaction_bootstrap: >
+    the n+=100 side is jointly resampled across the treatment (G2) and the
+    control method for both feature sets in a contrast, under one shared draw of
+    the outer fold; the FULL side enters as a frozen constant.
+  confirmatory_baseline: G0
+  confirmatory_family: [I_noD8|G0, I_noNeigh|G0]
+  secondary_contrasts: [I_noD8|XGB, I_noNeigh|XGB, I_noD8|G1, I_noNeigh|G1]
+  multiple_testing:
+    method: Holm
+    alpha: 0.05

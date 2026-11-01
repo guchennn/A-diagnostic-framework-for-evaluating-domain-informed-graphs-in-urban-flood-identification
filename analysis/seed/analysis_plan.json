@@ -1,0 +1,133 @@
+{
+  "frozen_at_utc": "2026-10-29T12:03:04.415Z",
+  "scores_read_before_freeze": false,
+  "known_user_supplied_target_pp": -0.182,
+  "run": "reviewer-revision-v1-0d119f16fcb9",
+  "cohort": {
+    "cities": [
+      "zhengzhou",
+      "beijing"
+    ],
+    "outer_folds": [
+      0,
+      1,
+      2,
+      3,
+      4
+    ],
+    "revelations": [
+      "1",
+      "2",
+      "3",
+      "4",
+      "5"
+    ],
+    "budget": "100",
+    "label_layer": "STRICT-LOC",
+    "features": "FULL-COMMON",
+    "reveal": "uniform",
+    "candidate_domain": "complete held-out eligible domain; bank_id NA; positives verified against all three fixed banks"
+  },
+  "variants": {
+    "own": "FF-G0-1",
+    "D8": "FF-G2-1"
+  },
+  "groups": {
+    "analysis": "L",
+    "groups": [
+      "0",
+      "1",
+      "2",
+      "all"
+    ],
+    "definitions": [
+      "no incoming support",
+      "incoming support without directed two-edge upstream path",
+      "directed two-edge upstream path exists",
+      "complete-domain total"
+    ],
+    "held_graph": "fixed G2/D8 test graph from structure_inputs; unchanged across seeds and variants"
+  },
+  "estimand": "C_g(s)=sum over positive i in group g of precision at inclusive exact-score threshold s_i, divided by ALL positives. No within-group reranking. Report 100*C_g in pp.",
+  "pairs": {
+    "unordered": [
+      [
+        1,
+        2
+      ],
+      [
+        1,
+        3
+      ],
+      [
+        2,
+        3
+      ]
+    ],
+    "orientation": "lower slot minus higher slot",
+    "signed_symmetrization": "all six ordered pairs, exact reversals; dependent, not p-values"
+  },
+  "aggregation": "compute each pair per city/fold/revelation; average five revelations within each fold then five folds equally. Keep all unit and fold aggregate values, all three fixed-pair city effects and all six signed effects.",
+  "graph_effect": "FF-G2-1 minus FF-G0-1 per matched slot; average three seed-specific group outcomes (never average predictions), then five revelations, then five folds. Reproduce archived L group and overall fold effects; validate Zhengzhou L2 rounds to -0.182 pp.",
+  "seed_checks": "verify actual SHA256-derived uint128 and torch mod 2^63 for each slot, selected config/refit epochs and training sample identity; report config-dependent cross-variant seed mismatches instead of claiming common actual seeds.",
+  "randomized_reference": {
+    "draws": 10000,
+    "seed": 20261029,
+    "generator": "numpy.default_rng PCG64",
+    "city_order": [
+      "zhengzhou",
+      "beijing"
+    ],
+    "unit_order": "fold ascending then revelation ascending",
+    "ordered_pair_order": [
+      [
+        1,
+        2
+      ],
+      [
+        1,
+        3
+      ],
+      [
+        2,
+        3
+      ],
+      [
+        2,
+        1
+      ],
+      [
+        3,
+        1
+      ],
+      [
+        3,
+        2
+      ]
+    ],
+    "scheme": "independently per unit uniformly choose one of six ordered pairs; same draw choices across groups for additivity; average revelations within fold then folds; report q.025/q.975 with numpy linear quantiles and all draw aggregates",
+    "interpretation": "empirical seed-sensitivity reference only, not population null, p-value, CI, or variance-matched test; graph contrast averages three seed fits whereas reference uses one pair"
+  },
+  "comparison": "show observed group effect relative to BOTH full six-signed fixed-pair envelope and randomized q.025/q.975; also show full draw min/max; no selection by results; compare group with same group only",
+  "dispersion": "separately describe 75 raw unordered unit-pair values per city/group (and 150 signed), 15 fold-pair values, and 3 fixed-pair city averages (6 signed). Descriptive SD/range/RMS/quantiles; never independent replicates.",
+  "sensitivity": "all three graph-delta leave-one-seed-slot-out means, every fold sign and single-slot means",
+  "validation": [
+    "small synthetic exact ties/identity/additivity/permutation/invalid invariants tests",
+    "all-task receipts/selections/provenance verified with existing loaders",
+    "source hashes including predictions/configs/structure/archive/helper code",
+    "complete matrix, frozen memberships, positive/domain identity, pair antisymmetry/cycle and hierarchy checks"
+  ],
+  "restrictions": [
+    "existing predictions only; no training",
+    "write generated analysis artifacts only beneath the explicit --output directory",
+    "read prepared inputs only beneath --root and explicitly supplied provenance inputs",
+    "aggregate outputs only; no individual predictions/labels/coordinates or grid IDs exported"
+  ],
+  "status": "frozen before any prediction score loading; post-review diagnostic, not prospective preregistration",
+  "portable_release_provenance": {
+    "source": "flood_graph_manuscript_EN_portrait_v8_20261030/evidence/seed_only/analysis_plan.json",
+    "source_sha256": "bf0858e3721ff6f8aac3f3d82fb4976a417e9d884df3fac7ce4c12deefde5ced",
+    "changes": "Portable input/output restrictions replace machine-specific operational restrictions. Scientific settings and original freeze metadata are retained. Historical archive comparisons are opt-in for fresh runs.",
+    "historical_target": "The -0.182 pp value and archive reproduction clauses describe the original run, not an acceptance threshold for fresh training."
+  }
+}

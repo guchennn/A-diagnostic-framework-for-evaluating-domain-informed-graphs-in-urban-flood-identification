@@ -1,0 +1,106 @@
+{
+  "convention": "unit weights; exact ties; whole-bank AP; midpoint ECDF",
+  "scope": "per-bank descriptive results; no independent-replicate inference",
+  "banks": {
+    "group_accounting": {
+      "bank_size": 4,
+      "positive_count": 2,
+      "ap_a": 0.8333333333333333,
+      "ap_b": 0.5,
+      "ap_difference": 0.33333333333333326,
+      "mean_positive_midrank_change": 0.25,
+      "additivity_residual": 5.551115123125783e-17,
+      "groups": [
+        {
+          "group": "one_step",
+          "positive_count": 1,
+          "positive_share": 0.5,
+          "ap_contribution_a_minus_b": 0.25,
+          "midrank_change_a_minus_b": 0.75
+        },
+        {
+          "group": "retained",
+          "positive_count": 1,
+          "positive_share": 0.5,
+          "ap_contribution_a_minus_b": 0.08333333333333331,
+          "midrank_change_a_minus_b": -0.25
+        }
+      ]
+    },
+    "opposite_signs": {
+      "bank_size": 8,
+      "positive_count": 4,
+      "ap_a": 0.7321428571428572,
+      "ap_b": 0.5238095238095237,
+      "ap_difference": 0.20833333333333348,
+      "mean_positive_midrank_change": 0.0625,
+      "additivity_residual": -1.6653345369377348e-16,
+      "groups": [
+        {
+          "group": "A",
+          "positive_count": 2,
+          "positive_share": 0.5,
+          "ap_contribution_a_minus_b": 0.06547619047619048,
+          "midrank_change_a_minus_b": -0.1875
+        },
+        {
+          "group": "B",
+          "positive_count": 2,
+          "positive_share": 0.5,
+          "ap_contribution_a_minus_b": 0.14285714285714285,
+          "midrank_change_a_minus_b": 0.3125
+        }
+      ]
+    },
+    "perfect_vs_constant": {
+      "bank_size": 4,
+      "positive_count": 2,
+      "ap_a": 1.0,
+      "ap_b": 0.5,
+      "ap_difference": 0.5,
+      "mean_positive_midrank_change": 0.25,
+      "additivity_residual": 0.0,
+      "groups": [
+        {
+          "group": "one_step",
+          "positive_count": 1,
+          "positive_share": 0.5,
+          "ap_contribution_a_minus_b": 0.25,
+          "midrank_change_a_minus_b": 0.375
+        },
+        {
+          "group": "retained",
+          "positive_count": 1,
+          "positive_share": 0.5,
+          "ap_contribution_a_minus_b": 0.25,
+          "midrank_change_a_minus_b": 0.125
+        }
+      ]
+    },
+    "same_ap_different_allocation": {
+      "bank_size": 8,
+      "positive_count": 4,
+      "ap_a": 0.7321428571428571,
+      "ap_b": 0.5238095238095237,
+      "ap_difference": 0.20833333333333337,
+      "mean_positive_midrank_change": 0.0625,
+      "additivity_residual": -2.7755575615628914e-17,
+      "groups": [
+        {
+          "group": "A",
+          "positive_count": 2,
+          "positive_share": 0.5,
+          "ap_contribution_a_minus_b": 0.20833333333333334,
+          "midrank_change_a_minus_b": 0.125
+        },
+        {
+          "group": "B",
+          "positive_count": 2,
+          "positive_share": 0.5,
+          "ap_contribution_a_minus_b": 0.0,
+          "midrank_change_a_minus_b": 0.0
+        }
+      ]
+    }
+  }
+}

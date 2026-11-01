@@ -1,0 +1,87 @@
+schema_version: 1
+protocol_id: FloodGNN-CEUS-ZZ-BJ-v1.0
+environment_lock_required: true
+task_key:
+  - protocol_id
+  - experiment_id
+  - city
+  - label_layer
+  - reveal_mechanism
+  - outer_fold
+  - budget
+  - trajectory
+  - feature_set
+  - model
+  - graph_id
+  - realization_id
+  - config
+  - seed
+not_applicable_value: NA
+preprocessing:
+  fit_rows: train P_total union U
+  inner_fit_scope: current inner-train only
+  outer_refit_scope: complete outer-train only
+  validation_or_test_statistics: forbidden
+  imputer: per-column median
+  all_missing_training_column: failed
+  neural_scaler: training mean and population standard deviation ddof=0
+  zero_variance_output: 0
+oof:
+  schema:
+    - protocol_id
+    - experiment_id
+    - city
+    - label_layer
+    - reveal_mechanism
+    - outer_fold
+    - budget
+    - trajectory
+    - feature_set
+    - model
+    - graph_id
+    - realization_id
+    - config
+    - seed
+    - bank_id
+    - grid_id
+    - sample_role
+    - score
+    - status
+  coverage: each grid_id exactly once across outer-test folds
+  predictions_required_after_E1: true
+  E0_prediction_materialization: forbidden
+metric:
+  primary: PB-AUPRC
+  evaluation_bank_ratio: "1:10"
+  banks_per_partition: 3
+bootstrap:
+  replicates: 10000
+  paired_by: [city, budget, trajectory, seed, outer_block, bank_id]
+  resample_levels: [trajectory, seed, held_out_spatial_block]
+  fixed_designs: [evaluation_banks, G5_realizations]
+  g5_realization_aggregation: mean before inference
+  random_generator: PCG64DXSM
+confirmatory_budgets: [50, 100, 200]
+descriptive_budgets: [20, FULL]
+multiple_testing:
+  method: Holm
+  family: within city across confirmatory budgets
+  alpha: 0.05
+claim_gates:
+  Gate-1:
+    comparison: G2 minus inner-selected best-alternative
+    minimum_effect: 0.01
+    requires_stability_checks: true
+  Gate-2:
+    budget: 100
+    prerequisites: [Gate-1]
+    comparisons: [MLP, G0, Neighbor-XGB, Fixed-filter]
+    test: intersection-union
+    threshold: 0
+  Gate-3:
+    budget: 100
+    prerequisites: [Gate-1, Gate-2]
+    comparisons: [G1, G4, mean-G5]
+    test: intersection-union
+    threshold: 0
+    failed_g5_policy: not-estimable

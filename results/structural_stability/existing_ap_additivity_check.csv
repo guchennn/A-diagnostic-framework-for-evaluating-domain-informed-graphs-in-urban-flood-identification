@@ -1,0 +1,11 @@
+city,outer_fold,source,verification,sum_existing_L_terms,existing_overall_AP_difference,absolute_additivity_error
+zhengzhou,0,existing_group_folds.csv,existing exported L terms only; no predictions read,-0.001420278581175118,-0.001420278581175118,0
+zhengzhou,1,existing_group_folds.csv,existing exported L terms only; no predictions read,0.006888506762124047,0.006888506762124048,8.673617379884035e-19
+zhengzhou,2,existing_group_folds.csv,existing exported L terms only; no predictions read,0.0010961938027232478,0.001096193802723248,2.168404344971009e-19
+zhengzhou,3,existing_group_folds.csv,existing exported L terms only; no predictions read,-0.0018449585026179493,-0.0018449585026179488,4.336808689942018e-19
+zhengzhou,4,existing_group_folds.csv,existing exported L terms only; no predictions read,-0.0045460002872599915,-0.004546000287259991,8.673617379884035e-19
+beijing,0,existing_group_folds.csv,existing exported L terms only; no predictions read,0.003776531421377027,0.003776531421377028,8.673617379884035e-19
+beijing,1,existing_group_folds.csv,existing exported L terms only; no predictions read,0.006804407957908682,0.006804407957908682,0
+beijing,2,existing_group_folds.csv,existing exported L terms only; no predictions read,0.0018860787678920082,0.0018860787678920082,0
+beijing,3,existing_group_folds.csv,existing exported L terms only; no predictions read,0.002325151802475425,0.002325151802475425,0
+beijing,4,existing_group_folds.csv,existing exported L terms only; no predictions read,0.0028765488038867224,0.0028765488038867224,0

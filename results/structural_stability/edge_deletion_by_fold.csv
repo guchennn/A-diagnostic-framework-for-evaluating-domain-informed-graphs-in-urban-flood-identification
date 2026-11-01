@@ -1,0 +1,31 @@
+city,outer_fold,scope,deleted_edges,denominator_edges,deleted_fraction,retained_edges,denominator_definition,retained_definition
+zhengzhou,0,whole_domain_pruning,4613,24626,0.18732234223990904,20013,all whole-domain directed G2 edges,retained train-to-train plus test-to-test edges
+zhengzhou,0,incoming_to_test,255,4935,0.05167173252279635,4680,whole-domain G2 edges whose target is in this test fold,retained test-to-test edges
+zhengzhou,0,incident_to_test,495,5175,0.09565217391304348,4680,whole-domain G2 edges with at least one endpoint in this test fold,retained test-to-test edges
+zhengzhou,1,whole_domain_pruning,5242,24626,0.2128644522049866,19384,all whole-domain directed G2 edges,retained train-to-train plus test-to-test edges
+zhengzhou,1,incoming_to_test,325,4898,0.06635361371988567,4573,whole-domain G2 edges whose target is in this test fold,retained test-to-test edges
+zhengzhou,1,incident_to_test,610,5183,0.11769245610650203,4573,whole-domain G2 edges with at least one endpoint in this test fold,retained test-to-test edges
+zhengzhou,2,whole_domain_pruning,5155,24626,0.20933160074717777,19471,all whole-domain directed G2 edges,retained train-to-train plus test-to-test edges
+zhengzhou,2,incoming_to_test,327,4991,0.06551793227810059,4664,whole-domain G2 edges whose target is in this test fold,retained test-to-test edges
+zhengzhou,2,incident_to_test,580,5244,0.11060259344012205,4664,whole-domain G2 edges with at least one endpoint in this test fold,retained test-to-test edges
+zhengzhou,3,whole_domain_pruning,5065,24626,0.20567692682530658,19561,all whole-domain directed G2 edges,retained train-to-train plus test-to-test edges
+zhengzhou,3,incoming_to_test,211,4844,0.04355904211395541,4633,whole-domain G2 edges whose target is in this test fold,retained test-to-test edges
+zhengzhou,3,incident_to_test,533,5166,0.10317460317460317,4633,whole-domain G2 edges with at least one endpoint in this test fold,retained test-to-test edges
+zhengzhou,4,whole_domain_pruning,4659,24626,0.18919028668886542,19967,all whole-domain directed G2 edges,retained train-to-train plus test-to-test edges
+zhengzhou,4,incoming_to_test,253,4958,0.051028640580879386,4705,whole-domain G2 edges whose target is in this test fold,retained test-to-test edges
+zhengzhou,4,incident_to_test,524,5229,0.10021036527060623,4705,whole-domain G2 edges with at least one endpoint in this test fold,retained test-to-test edges
+beijing,0,whole_domain_pruning,11778,60162,0.1957714171736312,48384,all whole-domain directed G2 edges,retained train-to-train plus test-to-test edges
+beijing,0,incoming_to_test,707,12089,0.05848291835552982,11382,whole-domain G2 edges whose target is in this test fold,retained test-to-test edges
+beijing,0,incident_to_test,1296,12678,0.10222432560340748,11382,whole-domain G2 edges with at least one endpoint in this test fold,retained test-to-test edges
+beijing,1,whole_domain_pruning,12865,60162,0.21383930055516773,47297,all whole-domain directed G2 edges,retained train-to-train plus test-to-test edges
+beijing,1,incoming_to_test,653,12034,0.05426292172178827,11381,whole-domain G2 edges whose target is in this test fold,retained test-to-test edges
+beijing,1,incident_to_test,1383,12764,0.1083516139141335,11381,whole-domain G2 edges with at least one endpoint in this test fold,retained test-to-test edges
+beijing,2,whole_domain_pruning,11817,60162,0.1964196668993717,48345,all whole-domain directed G2 edges,retained train-to-train plus test-to-test edges
+beijing,2,incoming_to_test,696,12143,0.057316972741497156,11447,whole-domain G2 edges whose target is in this test fold,retained test-to-test edges
+beijing,2,incident_to_test,1302,12749,0.10212565691426778,11447,whole-domain G2 edges with at least one endpoint in this test fold,retained test-to-test edges
+beijing,3,whole_domain_pruning,12505,60162,0.2078554569329477,47657,all whole-domain directed G2 edges,retained train-to-train plus test-to-test edges
+beijing,3,incoming_to_test,712,12072,0.058979456593770706,11360,whole-domain G2 edges whose target is in this test fold,retained test-to-test edges
+beijing,3,incident_to_test,1361,12721,0.10698844430469302,11360,whole-domain G2 edges with at least one endpoint in this test fold,retained test-to-test edges
+beijing,4,whole_domain_pruning,13342,60162,0.22176789335460922,46820,all whole-domain directed G2 edges,retained train-to-train plus test-to-test edges
+beijing,4,incoming_to_test,583,11824,0.0493064952638701,11241,whole-domain G2 edges whose target is in this test fold,retained test-to-test edges
+beijing,4,incident_to_test,1360,12601,0.10792794222680739,11241,whole-domain G2 edges with at least one endpoint in this test fold,retained test-to-test edges

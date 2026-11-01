@@ -1,0 +1,34 @@
+schema_version: 1
+parser_version: crowdflood-labels-v1
+privacy_status: processing-only
+source_file: final_label_ledger.parquet
+primary_key: [grid_id, label_layer]
+model_interface_columns: [grid_id, label_layer]
+layers:
+  STRICT-LOC:
+    definition: valid final-grid location with every parsed pt_type_1 value equal to integer 1
+    subset_of: ALL-LOC
+  ALL-LOC:
+    definition: every valid final-grid location regardless of parsed pt_type_1 value
+    subset_of: null
+qc_priority:
+  - invalid_coordinate
+  - geometry_invalid
+  - geometry_mismatch
+  - outside_admin
+  - outside_AOI
+  - invalid_pt_type_1
+  - not_all_type_1
+  - duplicate_id
+  - duplicate_coordinate
+  - duplicate_grid
+forbidden_design_columns:
+  - member_row_hashes
+  - member_count
+  - raw_id
+  - text
+  - toponym
+  - geometry
+  - center_x
+  - center_y
+  - flood_prob

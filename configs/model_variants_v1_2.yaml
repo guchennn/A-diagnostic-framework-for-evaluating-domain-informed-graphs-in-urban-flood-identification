@@ -1,0 +1,44 @@
+schema_version: 1
+protocol_id: FloodGNN-CEUS-ZZ-BJ-v1.0
+amendment_version: v1.2
+base_model:
+  inherit_from: configs/model_grid.yaml#GraphSAGE-G2
+  input: X plus G2
+  fixed:
+    layers: 2
+    aggregator: mean
+inherit_unchanged:
+  config_grid: configs/model_grid.yaml (SMALL/MEDIUM)
+  neural_training: configs/model_grid.yaml#neural_training
+  seeds: configs/model_grid.yaml#seeds
+  tree_training: configs/model_grid.yaml#tree_training
+  selection: E1 inner-selection rule
+  epoch: E1
+  evaluation_banks: E1
+variants:
+  mean:
+    description: reference; identical to GraphSAGE-G2
+    delta: {}
+  sum:
+    description: sum aggregation to preserve cumulative upstream quantity
+    delta:
+      fixed.aggregator: sum
+  mean-plus-indegree:
+    description: mean aggregation plus a partition-local G2 in-degree topological feature
+    delta:
+      fixed.aggregator: mean
+      input: X plus G2 plus partition-local G2 in-degree
+      extra_node_features:
+        - log1p_partition_local_g2_in_degree
+extra_node_features:
+  log1p_partition_local_g2_in_degree:
+    formula: log1p(in-degree within the current partition's G2 graph)
+    graph_source: current partition G2 edges only
+    label_blind: true
+    scaler_fit_scope: train only
+scope:
+  city: [zhengzhou]
+  budget: [100]
+  feature_set: [F18]
+  descriptive_budget: [20]
+hpo: forbidden

@@ -1,0 +1,92 @@
+schema_version: 1
+protocol_id: FloodGNN-CEUS-ZZ-BJ-v1.0
+amendment_version: v1.2
+source_of_truth:
+  full_feature_names: configs/protocol.yaml#features.names
+  full_feature_definitions: configs/feature_schema.yaml
+sets:
+  F18:
+    description: full 18-feature set (reference)
+    dropped_from_F18: []
+    members:
+      - elevation_mean
+      - slope_mean
+      - relative_elevation_1km
+      - local_relief_1km
+      - log_flow_accumulation
+      - twi
+      - event_rainfall_total
+      - max_6h_rainfall
+      - antecedent_72h_rainfall
+      - built_up_fraction
+      - water_fraction
+      - vegetation_fraction
+      - cropland_fraction
+      - road_length_density
+      - waterway_length_density
+      - distance_to_nearest_waterway
+      - distance_to_WorldCover_waterbody
+      - log1p_population_density
+  F16-noD8:
+    description: drop the two D8-flow-derived features
+    dropped_from_F18: [log_flow_accumulation, twi]
+    members:
+      - elevation_mean
+      - slope_mean
+      - relative_elevation_1km
+      - local_relief_1km
+      - event_rainfall_total
+      - max_6h_rainfall
+      - antecedent_72h_rainfall
+      - built_up_fraction
+      - water_fraction
+      - vegetation_fraction
+      - cropland_fraction
+      - road_length_density
+      - waterway_length_density
+      - distance_to_nearest_waterway
+      - distance_to_WorldCover_waterbody
+      - log1p_population_density
+  F14-noNeigh:
+    description: drop the four neighbourhood/flow-derived features
+    dropped_from_F18:
+      - relative_elevation_1km
+      - local_relief_1km
+      - log_flow_accumulation
+      - twi
+    members:
+      - elevation_mean
+      - slope_mean
+      - event_rainfall_total
+      - max_6h_rainfall
+      - antecedent_72h_rainfall
+      - built_up_fraction
+      - water_fraction
+      - vegetation_fraction
+      - cropland_fraction
+      - road_length_density
+      - waterway_length_density
+      - distance_to_nearest_waterway
+      - distance_to_WorldCover_waterbody
+      - log1p_population_density
+  F16-local-removal:
+    status: optional
+    description: drop the two neighbourhood-terrain features only, keeping the D8-flow features
+    dropped_from_F18: [relative_elevation_1km, local_relief_1km]
+    members:
+      - elevation_mean
+      - slope_mean
+      - log_flow_accumulation
+      - twi
+      - event_rainfall_total
+      - max_6h_rainfall
+      - antecedent_72h_rainfall
+      - built_up_fraction
+      - water_fraction
+      - vegetation_fraction
+      - cropland_fraction
+      - road_length_density
+      - waterway_length_density
+      - distance_to_nearest_waterway
+      - distance_to_WorldCover_waterbody
+      - log1p_population_density

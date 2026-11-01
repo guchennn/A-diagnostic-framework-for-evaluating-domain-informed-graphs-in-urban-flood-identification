@@ -1,0 +1,19 @@
+city,budget,baseline,after,before,effect,resampling_q025,resampling_q975,n_folds,interval_status
+zhengzhou,100,G0,F16-noD8,F18,-0.0006019323938917798,,,5,UNAVAILABLE for this within-budget interaction; do not substitute across-budget interaction interval
+zhengzhou,100,G1,F16-noD8,F18,0.0022710224933897515,,,5,UNAVAILABLE for this within-budget interaction; do not substitute across-budget interaction interval
+zhengzhou,100,XGB,F16-noD8,F18,0.012293427715221461,,,5,UNAVAILABLE for this within-budget interaction; do not substitute across-budget interaction interval
+zhengzhou,100,G0,F14-noNeigh,F18,-0.0014815537366466235,,,5,UNAVAILABLE for this within-budget interaction; do not substitute across-budget interaction interval
+zhengzhou,100,G1,F14-noNeigh,F18,-0.000826316683350814,,,5,UNAVAILABLE for this within-budget interaction; do not substitute across-budget interaction interval
+zhengzhou,100,XGB,F14-noNeigh,F18,0.0070606593530264435,,,5,UNAVAILABLE for this within-budget interaction; do not substitute across-budget interaction interval
+zhengzhou,100,G0,F14-noNeigh,F16-noD8,-0.0008796213427548438,,,5,UNAVAILABLE for this within-budget interaction; do not substitute across-budget interaction interval
+zhengzhou,100,G1,F14-noNeigh,F16-noD8,-0.0030973391767405655,,,5,UNAVAILABLE for this within-budget interaction; do not substitute across-budget interaction interval
+zhengzhou,100,XGB,F14-noNeigh,F16-noD8,-0.0052327683621950175,,,5,UNAVAILABLE for this within-budget interaction; do not substitute across-budget interaction interval
+zhengzhou,FULL,G0,F16-noD8,F18,0.0003390319678864162,-0.013934536171160106,0.01438989062138846,5,saved FULL within-budget graph-increment interaction range
+zhengzhou,FULL,G1,F16-noD8,F18,-0.0010938821643806107,-0.00903626529628535,0.0067751543604643305,5,saved FULL within-budget graph-increment interaction range
+zhengzhou,FULL,XGB,F16-noD8,F18,0.0030303712838039678,-0.007126817663895046,0.013187560231502981,5,saved FULL within-budget graph-increment interaction range
+zhengzhou,FULL,G0,F14-noNeigh,F18,0.001949772406215733,-0.003451187154241697,0.009284112297042601,5,saved FULL within-budget graph-increment interaction range
+zhengzhou,FULL,G1,F14-noNeigh,F18,0.0037113256057450528,-0.0011612191663275095,0.008747104985141307,5,saved FULL within-budget graph-increment interaction range
+zhengzhou,FULL,XGB,F14-noNeigh,F18,0.00488637337087906,-0.0028516245942238005,0.012624371335981922,5,saved FULL within-budget graph-increment interaction range
+zhengzhou,FULL,G0,F14-noNeigh,F16-noD8,0.0016107404383293167,,,5,UNAVAILABLE for this within-budget interaction; do not substitute across-budget interaction interval
+zhengzhou,FULL,G1,F14-noNeigh,F16-noD8,0.0048052077701256635,,,5,UNAVAILABLE for this within-budget interaction; do not substitute across-budget interaction interval
+zhengzhou,FULL,XGB,F14-noNeigh,F16-noD8,0.0018560020870750926,,,5,UNAVAILABLE for this within-budget interaction; do not substitute across-budget interaction interval

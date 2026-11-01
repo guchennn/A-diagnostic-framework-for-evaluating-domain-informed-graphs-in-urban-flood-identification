@@ -1,0 +1,5 @@
+* text=auto eol=lf
+*.pdf -text
+*.png -text
+*.pptx -text
+results/feature_ablation/inference.csv -text whitespace=cr-at-eol

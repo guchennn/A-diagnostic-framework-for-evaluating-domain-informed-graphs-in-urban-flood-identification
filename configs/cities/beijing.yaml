@@ -1,0 +1,24 @@
+city_id: beijing
+city_event: Beijing_2023_7_30
+timezone: Asia/Shanghai
+event_window:
+  local_start: "2023-07-30T14:50:00+08:00"
+  local_end: "2023-08-11T21:42:00+08:00"
+  utc_start: "2023-07-30T06:50:00Z"
+  utc_end: "2023-08-11T13:42:00Z"
+imerg:
+  inventory_start: "2023-07-27T06:50:00Z"
+  expected_granules: 735
+  inventory_coverage:
+    start: "2023-07-27T06:30:00Z"
+    end: "2023-08-11T13:59:59.999Z"
+    first_filename: 3B-HHR.MS.MRG.3IMERG.20230727-S063000-E065959.0390.V07B.HDF5
+    last_filename: 3B-HHR.MS.MRG.3IMERG.20230811-S133000-E135959.0810.V07B.HDF5
+crs_epsg: 32650
+geoboundaries:
+  shapeName: Beijingshi
+  shapeID: 17275852B40522342172572
+worldpop_year: 2023
+osm_snapshot:
+  policy: event-end
+  timestamp: "2023-08-11T13:42:00Z"

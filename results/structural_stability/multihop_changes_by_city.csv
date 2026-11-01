@@ -1,0 +1,5 @@
+city,population,n_folds,total_fold_population,whole_multihop,heldout_multihop,stable_multihop,multihop_to_onehop,multihop_to_zero,enter_multihop,net_heldout_minus_whole
+zhengzhou,all_candidates,5,25155,8056,7485,7485,340,231,0,-571
+zhengzhou,STRICT-LOC_positive,5,791,255,233,233,15,7,0,-22
+beijing,all_candidates,5,61443,20269,18795,18795,859,615,0,-1474
+beijing,STRICT-LOC_positive,5,296,121,112,112,5,4,0,-9
