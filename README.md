@@ -119,7 +119,7 @@ the ablation guide. [Ablation reproduction](docs/ABLATION.md).
 ## Tests
 
 ```sh
-uv run --group figures pytest -q --basetemp reproduced/pytest
+uv run --group figures pytest -q --basetemp .pytest_tmp
 uv run ruff check src scripts analysis plots tests
 uv run ruff format --check src scripts analysis plots tests
 ```

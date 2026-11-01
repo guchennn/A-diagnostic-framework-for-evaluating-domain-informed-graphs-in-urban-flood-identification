@@ -59,7 +59,7 @@ fit outputs. Downstream aggregate and bootstrap verification is separate.
 ## Verification
 
 ```powershell
-uv run --no-sync python -m pytest tests/test_release_ablation.py -q --basetemp reproduced/pytest-ablation
+uv run --no-sync python -m pytest tests/test_release_ablation.py -q --basetemp .pytest_tmp
 uv run --no-sync python -m ruff check scripts/reproduce_ablation.py tests/test_release_ablation.py
 uv run --no-sync python -m ruff format --check scripts/reproduce_ablation.py tests/test_release_ablation.py
 ```

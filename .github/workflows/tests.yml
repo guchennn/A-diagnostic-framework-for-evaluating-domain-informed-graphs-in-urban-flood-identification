@@ -27,7 +27,7 @@ jobs:
       - run: uv sync --frozen --group figures
       - run: uv run ruff check src scripts analysis plots tests
       - run: uv run ruff format --check src scripts analysis plots tests
-      - run: uv run --group figures pytest -q --basetemp reproduced/pytest
+      - run: uv run --group figures pytest -q --basetemp .pytest_tmp
       - run: uv run python scripts/reproduce_tables.py
       - run: uv run python analysis/seed/verify_aggregate_arithmetic.py
       - run: uv run --group figures python plots/make_result_figures.py --output reproduced/figures

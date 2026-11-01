@@ -39,7 +39,7 @@ status supplies the platform-specific verification record.
 uv sync --frozen --group figures
 uv run ruff check src scripts analysis plots tests
 uv run ruff format --check src scripts analysis plots tests
-uv run --group figures pytest -q --basetemp reproduced/pytest
+uv run --group figures pytest -q --basetemp .pytest_tmp
 uv run python scripts/reproduce_tables.py
 uv run python analysis/seed/verify_aggregate_arithmetic.py
 uv run --group figures python plots/make_result_figures.py --output reproduced/figures
