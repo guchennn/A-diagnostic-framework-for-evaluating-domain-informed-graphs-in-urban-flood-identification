@@ -4,7 +4,7 @@ RQ2 measures whether the increment of GraphSAGE on G2 over its controls changes 
 supervision is reduced from FULL to n+ = 100 and specified D8-flow / neighbourhood
 features are removed. It is a fixed-FULL conditional interaction: only the n+=100 side
 is resampled. Every decision it consumes is frozen before inspection
-(``configs/rq2_scarcity_freeze_v1_2.yaml``; see ``docs/ABLATION.md``).
+(``configs/rq2_scarcity_freeze_v1_2.yaml``; see ``REPRODUCE.md#ablation``).
 
 Estimand chain (all in PB-AUPRC units, mean over the three outer evaluation banks):
 
@@ -375,10 +375,10 @@ def run_rq2_scarcity(
         raise ValueError("outer folds must be a non-empty subset of 0..4")
     if not trajectories or any(str(t) not in TRAJECTORIES for t in trajectories):
         raise ValueError("trajectories must be a non-empty subset of 1..5")
-    from floodgnn_ceus import reviewer_revision
+    from floodgnn_ceus import train
 
-    plan = reviewer_revision.prepare_plan(root)
-    reviewer_revision.require_revision_environment(root, plan)
+    plan = train.prepare_plan(root)
+    train.require_revision_environment(root, plan)
     output_root = output_root.resolve()
     units_dir = output_root / "units"
     selection_dir = output_root / "selections"

@@ -66,7 +66,7 @@ full_side:
   # D(F, FULL) and the FULL feature-set interactions are read from this file at
   # run time; their uncertainty is characterized retrospectively and does not
   # re-enter the prospective interaction bootstrap.
-  source: results/feature_ablation/inference.csv
+  source: results/ablation/inference.csv
   source_sha256: efea8a20b4f457e847e53ebaab5392091d396b02d9a299d68f56e6141b89da41
   manifest_sha256: 92c4aa3ebfdc309eea3f681ab28a21f710bab79f3fa04bfa74ed39ca3b354623
 

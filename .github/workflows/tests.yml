@@ -24,10 +24,9 @@ jobs:
       - name: Use a short dependency environment path
         shell: bash
         run: echo "UV_PROJECT_ENVIRONMENT=$RUNNER_TEMP/flood-graph-venv" >> "$GITHUB_ENV"
-      - run: uv sync --frozen --group figures
-      - run: uv run ruff check src scripts analysis plots tests
-      - run: uv run ruff format --check src scripts analysis plots tests
-      - run: uv run --group figures pytest -q --basetemp .pytest_tmp
+      - run: uv sync --frozen
+      - run: uv run ruff check src scripts tests
+      - run: uv run ruff format --check src scripts tests
+      - run: uv run pytest -q --basetemp .pytest_tmp
       - run: uv run python scripts/reproduce_tables.py
-      - run: uv run python analysis/seed/verify_aggregate_arithmetic.py
-      - run: uv run --group figures python plots/make_result_figures.py --output reproduced/figures
+      - run: uv run python scripts/check_seed_results.py

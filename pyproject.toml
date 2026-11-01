@@ -34,10 +34,6 @@ dev = [
     "ruff",
     "scikit-learn",
 ]
-figures = [
-    "matplotlib>=3.11.1",
-    "pillow>=12.3.0",
-]
 train = [
     "lightgbm",
     "scikit-learn",

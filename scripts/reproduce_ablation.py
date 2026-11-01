@@ -10,7 +10,7 @@ import numpy as np
 import pandas as pd
 import yaml
 
-from floodgnn_ceus import e1, reviewer_revision
+from floodgnn_ceus import e1, train
 from floodgnn_ceus.experiments import E1OuterUnit
 from floodgnn_ceus.io import sha256_file
 from floodgnn_ceus.protocol import EXPECTED_FEATURE_NAMES
@@ -169,14 +169,14 @@ def run(root: Path, selection_path: Path, output: Path, budget: str) -> dict:
     if budget == "FULL":
         raise ValueError(
             "FULL replay blocked: original generator, refit epochs and model seed provenance "
-            "are unrecovered. See docs/ABLATION.md."
+            "are unrecovered. See REPRODUCE.md#ablation."
         )
     if report["status"] != "selection-ready":
         raise ValueError("recorded selection is incomplete")
     names = feature_names(root)
     # Reuse the full live environment/input/source/probe validation before reading city data.
-    gate_plan = reviewer_revision.prepare_plan(root)
-    reviewer_revision.require_revision_environment(root, gate_plan)
+    gate_plan = train.prepare_plan(root)
+    train.require_revision_environment(root, gate_plan)
     output = output.resolve()
     if not output.is_relative_to(root.resolve() / "reproduced"):
         raise ValueError("output must be a new directory below root/reproduced")
@@ -215,7 +215,7 @@ def main() -> int:
     parser.add_argument(
         "--selections",
         type=Path,
-        default=ROOT / "provenance/selected_ablation.csv",
+        default=ROOT / "results/settings/ablation_selections.csv",
         help="published v8 selection inventory (must exist)",
     )
     parser.add_argument("--budget", choices=("100", "FULL"), default="100")

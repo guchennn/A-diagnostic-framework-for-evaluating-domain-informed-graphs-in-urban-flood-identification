@@ -2,4 +2,4 @@
 *.pdf -text
 *.png -text
 *.pptx -text
-results/feature_ablation/inference.csv -text whitespace=cr-at-eol
+results/ablation/inference.csv -text whitespace=cr-at-eol

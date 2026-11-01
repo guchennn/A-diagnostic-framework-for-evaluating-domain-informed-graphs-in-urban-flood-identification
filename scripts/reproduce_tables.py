@@ -71,7 +71,7 @@ def reproduce(source, output):
 
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
-    parser.add_argument("--source", type=Path, default=ROOT / "results/absolute_performance")
+    parser.add_argument("--source", type=Path, default=ROOT / "results/performance")
     parser.add_argument("--output", type=Path, default=ROOT / "reproduced/tables")
     args = parser.parse_args()
     reproduce(args.source, args.output)
