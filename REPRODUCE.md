@@ -30,7 +30,7 @@ effects and 10,000 randomized references from fit/group aggregates.
 ## Prepare the data
 
 Obtain provider access using the data guide, then run each stage.
-[Data access and citations](DATA.md).
+[Data access and citations](README.md#data).
 
 ```sh
 floodgnn fetch --city all --source all
