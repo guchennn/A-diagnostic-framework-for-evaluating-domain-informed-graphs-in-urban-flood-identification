@@ -40,10 +40,12 @@ jobs:
       - run: python -I -S reproduction/final_audit/scripts/verify_aggregates.py
       - run: python -I -S reproduction/controlled_validation/verify_published.py
       - run: python -I -S reproduction/recovery_audit/verify_records.py
+      - run: python -I -S reproduction/selection_alignment/verify_tables.py
       - run: python reproduction/controlled_validation/controlled_ranking/test_validation.py
       - run: python scripts/reproduce_tables.py
       - run: python scripts/check_seed_results.py
       - run: python -m floodgnn_ceus.synthetic_diagnostic_validation --output reproduced/synthetic
       - run: python -m floodgnn_ceus.train plan --output reproduced/plan.json
+      - run: python scripts/run_independent_attribute_controls.py plan
       - name: Validate training dependencies
         run: python -m pip install --dry-run -r requirements-train.txt
