@@ -1,0 +1,14 @@
+{
+  "status": "PASS",
+  "focused_CPU_tests": 6,
+  "whole_suite_CPU_tests": 479,
+  "whole_suite_seconds": 101.64,
+  "gpu_execution": false,
+  "real_input_smoke_completed": false,
+  "fresh_public_city_refit_matching_completed": false,
+  "independent_selection_variants": 4,
+  "planned_variant_selections": 520,
+  "planned_inner_fold_fits": 3120,
+  "planned_outer_refits": 1560,
+  "review": "Compared with historical run_selected_block; FULL/NA scope, feature order, selection, epoch and seed rules preserved."
+}

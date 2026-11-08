@@ -24,6 +24,7 @@ input/source hashes:
 | Full eligible-city to held-out graph-group migration | [Transition counts](reproduction/final_audit/group_migration/transition_matrix.csv) and [group-definition sensitivity](reproduction/final_audit/local_references/group_definition_sensitivity.csv) |
 | Controlled ranking experiments and archived synthetic graph analyses | [Code, results and Figure 8](reproduction/controlled_validation/README.md) |
 | Recovered FULL-budget records and city replay coverage | [Record audit](reproduction/recovery_audit/README.md) |
+| Replacement attribute comparisons with independent selection | [Verified selections, refit metadata and aggregate checks](reproduction/selection_alignment/README.md) |
 | Degree- and distance-matched local graph controls | [Construction, independent selection and paired analysis](reproduction/topology_controls/README.md) |
 
 Verify the supplied final-audit aggregates with standard Python, without original
@@ -164,10 +165,12 @@ OSM/building data.
 python -m pytest -q --basetemp .pytest_tmp
 ```
 
-The recovered FULL-budget fit/bank aggregates reproduce all 60 published fold-level
-means. Exact training replay still requires 15 missing epoch selections and verified
-integer-seed provenance for 135 neural fits. Original main-city execution and frozen
-prediction reanalysis are documented separately from fresh public-code refit replay.
+The revised manuscript uses the independently selected October attribute series,
+with 520 variant selections and 1,560 outer-fit records supplied separately from
+the legacy September experiment. The legacy FULL records still have missing
+metadata; those gaps do not describe the replacement series. Numerical reanalysis
+of archived predictions is verified, while fresh public-code refit matching is
+documented separately.
 [Recovered records](reproduction/recovery_audit/README.md) ·
 [Supported ablation scope](REPRODUCE.md#ablation).
 

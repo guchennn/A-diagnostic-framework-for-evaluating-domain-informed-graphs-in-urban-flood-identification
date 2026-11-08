@@ -1,0 +1,24 @@
+{
+  "run": "minor-revision-controls-v1",
+  "base_run": "reviewer-revision-v1-0d119f16fcb9",
+  "environment": {
+    "cuda_runtime": "12.8",
+    "gpu": "NVIDIA GeForce RTX 4060 Laptop GPU",
+    "python": "3.12.11",
+    "versions": {
+      "torch": "2.8.0+cu128",
+      "torch-geometric": "2.7.0"
+    }
+  },
+  "protocol_lock_sha256": "eb9187dd9efcc1beeb8e3e9c47ccbc2238936797d99abc7e73b4a97b8d25ec9d",
+  "source_files": {
+    "configs/feature_sets_v1_2.yaml": "1f4c683118464c79ea46ed4ced60969761fbe3016268a14d3cb4ed3a48289637",
+    "configs/model_grid.yaml": "e4414c8f307cd035c6f289d996124c8fb64b4f77346b113d09f37c23153362be",
+    "scripts/run_minor_revision_controls.py": "f0b3347123fdb2909079b695958cff0ed8f9cbd752528d714b59393b5d0e0ca7",
+    "src/floodgnn_ceus/e1.py": "cf07f100510c3e0db1207149faccb52ee311982cb56e06f2f76bce2d28e1fb6a",
+    "src/floodgnn_ceus/evaluation_design.py": "f9ff4956d22a0fadfe39446f4b8651424d4f742b96e6c1c30aaeafa7d3c0d093",
+    "src/floodgnn_ceus/graphs.py": "d9498e210e365839c10f1f978179dd700a9749dc32d22942793d5d7134ba29b5",
+    "src/floodgnn_ceus/models.py": "03228924bba3fa44f55caa0207cc77d087eac2c3e004f611b1213b30ef96a258",
+    "src/floodgnn_ceus/training.py": "57604711a70f0d57c0ca108ef29bca3101d5049780bf95f31101272b9b2242cd"
+  }
+}

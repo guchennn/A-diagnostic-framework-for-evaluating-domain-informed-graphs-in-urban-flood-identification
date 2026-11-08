@@ -1,0 +1,50 @@
+{
+  "status": "PASS",
+  "verification_scope": "Existing prediction replay and archived execution provenance; no new model fitting.",
+  "new_attribute_selections": 130,
+  "new_variant_selections": 520,
+  "new_attribute_outer_fits": 1560,
+  "new_outer_receipt_failures": 0,
+  "new_outer_oof_hash_failures": 0,
+  "source_and_configuration_hashes_verified": 8,
+  "frozen_input_hashes_verified": 76,
+  "protocol_lock_hash_matches": true,
+  "sampled_ap_recomputed_fits": 2160,
+  "recomputed_new_100_fits": 1200,
+  "recomputed_new_FULL_fits": 360,
+  "recomputed_main_F18_100_fits": 600,
+  "matched_attribute_fold_values": 240,
+  "expected_attribute_fold_values": 240,
+  "maximum_absolute_error_percentage_points": 1.1102230246251565e-14,
+  "FULL_variant_selections_verified": 120,
+  "FULL_candidate_receipts_verified": 240,
+  "FULL_inner_fold_results_verified": 720,
+  "FULL_selection_or_epoch_mismatches": 0,
+  "verification_agent": "selection_protocol_evidence",
+  "main_run": "reviewer-revision-v1-0d119f16fcb9",
+  "new_run": "minor-revision-controls-v1",
+  "source_functions": [
+    "scripts/run_minor_revision_controls.py::run_selected_block",
+    "scripts/analyze_minor_revision.py",
+    "src/floodgnn_ceus/e1.py",
+    "src/floodgnn_ceus/evaluation_design.py"
+  ],
+  "seed_provenance": {
+    "directly_recorded": [
+      "task.seed (NEURAL-1/2/3)",
+      "selected configuration",
+      "best inner epochs",
+      "selected refit duration",
+      "success status",
+      "OOF SHA256"
+    ],
+    "recoverable_from_locked_source": "SHA256(namespace) first 16 bytes, big-endian; torch uses modulo 2^63",
+    "namespace": "{protocol_id}/E1/{city}/{outer_fold}/{budget}/{trajectory}/{model}/{config}/{seed_id}",
+    "qualifier": "Same seed slot and generation rule; integer seed matches only when model/configuration match. Selection records store scheduled duration; outer receipts do not separately store realized epoch telemetry."
+  },
+  "limits": [
+    "Does not recover missing records for the distinct September D8-selected reference experiment.",
+    "Does not establish fresh training replay in the reorganized public repository."
+  ],
+  "correction_in_this_copy": "The earlier global statement about absent real-city controls was incorrect: completed G6 controls were found and independently verified. Attribute-provenance results above are unchanged."
+}

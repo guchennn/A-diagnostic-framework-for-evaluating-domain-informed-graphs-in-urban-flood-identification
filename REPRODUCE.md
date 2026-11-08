@@ -137,6 +137,24 @@ Cell-level scores remain in the local run directory.
 
 ## Ablation
 
+### Revised manuscript: independent selection
+
+The revised paper uses the October replacement series, in which own-attribute
+and D8 procedures each select their configuration and duration independently.
+Its 520 variant selections and 1,560 refit records are provided under
+[`reproduction/selection_alignment`](reproduction/selection_alignment/README.md).
+The [runner guide](reproduction/selection_alignment/Runner.md) covers fresh
+execution. Verify the supplied fold-level evidence with:
+
+```sh
+python -I -S reproduction/selection_alignment/verify_tables.py
+```
+
+### Legacy September attribute experiment
+
+The following commands and missing-record notes refer to the earlier
+D8-selected-reference series, which is retained for historical reproducibility.
+
 After preparation and the local environment/probe steps, rerun the budget-100
 attribute experiment with inner selection and matched reference fits.
 

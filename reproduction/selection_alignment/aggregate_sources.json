@@ -1,0 +1,12 @@
+{
+  "source_directory": "minor_revision_final_20261029",
+  "source_file_sha256": {
+    "absolute_summary.csv": "7fd04ae44a26c18d6ba64c49ddab4b26516c41d527c261939437b57865649541",
+    "absolute_folds.csv": "d92a349a4e8c242cfe360f582102e0873033c5acf5015ff7c681066e0807879d",
+    "contrasts_summary.csv": "b041b8969dda1538fdb687b9367e7293256f65cb4e893f1da20e11d2be2d3294",
+    "contrasts_folds.csv": "4aa5f0c06d5d016067946962d9d7500f60a082e33c69264d570dd38babe024b5",
+    "derived_summary.csv": "9d673ca5bf509240fe4aa010ab60e530222a460c4429e01977c25b2d2412e3bc",
+    "derived_folds.csv": "dca072f9bea66cedc6cb74fe3363b3f4a9713a59ddfe28e8440a4492a74a232f"
+  },
+  "filter": "series starts attr:; metric sampled_ap; retain original numeric precision"
+}

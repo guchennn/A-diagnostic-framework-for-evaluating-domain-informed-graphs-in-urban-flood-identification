@@ -1,0 +1,56 @@
+run_id: independent-attributes-v1
+preregistered: false
+cities:
+- zhengzhou
+- beijing
+outer_folds:
+- 0
+- 1
+- 2
+- 3
+- 4
+trajectories:
+- '1'
+- '2'
+- '3'
+- '4'
+- '5'
+inner_folds:
+- 0
+- 1
+- 2
+candidates:
+- SMALL
+- MEDIUM
+outer_seeds:
+- NEURAL-1
+- NEURAL-2
+- NEURAL-3
+cpu_threads: 1
+conditions:
+- budget: '100'
+  features:
+  - F16-noD8
+  - F14-noNeigh
+- budget: FULL
+  features:
+  - F18
+  - F16-noD8
+  - F14-noNeigh
+variants:
+- id: FF-G2-1
+  model: Fixed-filter
+  graph: G2
+  steps: 1
+- id: FF-G0-1
+  model: Fixed-filter
+  graph: G0
+  steps: 1
+- id: SAGE-G2-2
+  model: GraphSAGE-G2
+  graph: G2
+  layers: 2
+- id: SAGE-G0-2
+  model: GraphSAGE-G2
+  graph: G0
+  layers: 2

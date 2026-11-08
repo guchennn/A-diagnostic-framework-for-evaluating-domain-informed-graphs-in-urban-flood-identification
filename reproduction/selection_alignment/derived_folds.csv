@@ -1,0 +1,281 @@
+city,series,quantity,outer_fold,metric,value
+zhengzhou,attr:F16-noD8:100,change from 18: SAGE-G2-2 - SAGE-G0-2,0,sampled_ap,0.005387271870527617
+zhengzhou,attr:F16-noD8:100,change from 18: SAGE-G2-2 - SAGE-G0-2,1,sampled_ap,0.009654996972054582
+zhengzhou,attr:F16-noD8:100,change from 18: SAGE-G2-2 - SAGE-G0-2,2,sampled_ap,0.00776955759350062
+zhengzhou,attr:F16-noD8:100,change from 18: SAGE-G2-2 - SAGE-G0-2,3,sampled_ap,0.023705200094280482
+zhengzhou,attr:F16-noD8:100,change from 18: SAGE-G2-2 - SAGE-G0-2,4,sampled_ap,-0.0066123792668976444
+zhengzhou,attr:F16-noD8:100,change from 18: FF-G2-1 - FF-G0-1,0,sampled_ap,-0.011340464422493585
+zhengzhou,attr:F16-noD8:100,change from 18: FF-G2-1 - FF-G0-1,1,sampled_ap,-0.008475715744865397
+zhengzhou,attr:F16-noD8:100,change from 18: FF-G2-1 - FF-G0-1,2,sampled_ap,-0.008038116726206745
+zhengzhou,attr:F16-noD8:100,change from 18: FF-G2-1 - FF-G0-1,3,sampled_ap,0.0002366386942593223
+zhengzhou,attr:F16-noD8:100,change from 18: FF-G2-1 - FF-G0-1,4,sampled_ap,0.009305032943296699
+zhengzhou,attr:F16-noD8:100,removal effect: FF-G2-1,0,sampled_ap,-0.013005935794393964
+zhengzhou,attr:F16-noD8:100,removal effect: FF-G2-1,1,sampled_ap,0.010514050167529931
+zhengzhou,attr:F16-noD8:100,removal effect: FF-G2-1,2,sampled_ap,0.004772693579454201
+zhengzhou,attr:F16-noD8:100,removal effect: FF-G2-1,3,sampled_ap,0.0019206365396207126
+zhengzhou,attr:F16-noD8:100,removal effect: FF-G2-1,4,sampled_ap,0.011034950782533026
+zhengzhou,attr:F16-noD8:100,removal effect: FF-G0-1,0,sampled_ap,-0.0016654713719004288
+zhengzhou,attr:F16-noD8:100,removal effect: FF-G0-1,1,sampled_ap,0.018989765912395318
+zhengzhou,attr:F16-noD8:100,removal effect: FF-G0-1,2,sampled_ap,0.012810810305661002
+zhengzhou,attr:F16-noD8:100,removal effect: FF-G0-1,3,sampled_ap,0.0016839978453613291
+zhengzhou,attr:F16-noD8:100,removal effect: FF-G0-1,4,sampled_ap,0.0017299178392363168
+zhengzhou,attr:F16-noD8:100,removal effect: SAGE-G2-2,0,sampled_ap,0.011323042564571284
+zhengzhou,attr:F16-noD8:100,removal effect: SAGE-G2-2,1,sampled_ap,0.02385164023808678
+zhengzhou,attr:F16-noD8:100,removal effect: SAGE-G2-2,2,sampled_ap,0.006756279297843254
+zhengzhou,attr:F16-noD8:100,removal effect: SAGE-G2-2,3,sampled_ap,0.021000701188802623
+zhengzhou,attr:F16-noD8:100,removal effect: SAGE-G2-2,4,sampled_ap,0.0022452199614882984
+zhengzhou,attr:F16-noD8:100,removal effect: SAGE-G0-2,0,sampled_ap,0.005935770694043663
+zhengzhou,attr:F16-noD8:100,removal effect: SAGE-G0-2,1,sampled_ap,0.014196643266032316
+zhengzhou,attr:F16-noD8:100,removal effect: SAGE-G0-2,2,sampled_ap,-0.0010132782956573938
+zhengzhou,attr:F16-noD8:100,removal effect: SAGE-G0-2,3,sampled_ap,-0.002704498905477859
+zhengzhou,attr:F16-noD8:100,removal effect: SAGE-G0-2,4,sampled_ap,0.008857599228386082
+zhengzhou,attr:F14-noNeigh:100,change from 18: SAGE-G2-2 - SAGE-G0-2,0,sampled_ap,-0.007870663181146792
+zhengzhou,attr:F14-noNeigh:100,change from 18: SAGE-G2-2 - SAGE-G0-2,1,sampled_ap,0.014694581542211767
+zhengzhou,attr:F14-noNeigh:100,change from 18: SAGE-G2-2 - SAGE-G0-2,2,sampled_ap,0.007881968503262685
+zhengzhou,attr:F14-noNeigh:100,change from 18: SAGE-G2-2 - SAGE-G0-2,3,sampled_ap,0.02036049895442898
+zhengzhou,attr:F14-noNeigh:100,change from 18: SAGE-G2-2 - SAGE-G0-2,4,sampled_ap,0.0035302139070218664
+zhengzhou,attr:F14-noNeigh:100,change from 18: FF-G2-1 - FF-G0-1,0,sampled_ap,0.011069525302449035
+zhengzhou,attr:F14-noNeigh:100,change from 18: FF-G2-1 - FF-G0-1,1,sampled_ap,-0.022364911949693724
+zhengzhou,attr:F14-noNeigh:100,change from 18: FF-G2-1 - FF-G0-1,2,sampled_ap,0.0013422755442444275
+zhengzhou,attr:F14-noNeigh:100,change from 18: FF-G2-1 - FF-G0-1,3,sampled_ap,-0.007854325165270343
+zhengzhou,attr:F14-noNeigh:100,change from 18: FF-G2-1 - FF-G0-1,4,sampled_ap,0.0009593927458780224
+zhengzhou,attr:F14-noNeigh:100,removal effect: FF-G2-1,0,sampled_ap,0.0023940938442195137
+zhengzhou,attr:F14-noNeigh:100,removal effect: FF-G2-1,1,sampled_ap,0.007429894828457628
+zhengzhou,attr:F14-noNeigh:100,removal effect: FF-G2-1,2,sampled_ap,0.01014635450904483
+zhengzhou,attr:F14-noNeigh:100,removal effect: FF-G2-1,3,sampled_ap,-0.0015682533234285256
+zhengzhou,attr:F14-noNeigh:100,removal effect: FF-G2-1,4,sampled_ap,0.013749455130706523
+zhengzhou,attr:F14-noNeigh:100,removal effect: FF-G0-1,0,sampled_ap,-0.008675431458229466
+zhengzhou,attr:F14-noNeigh:100,removal effect: FF-G0-1,1,sampled_ap,0.02979480677815144
+zhengzhou,attr:F14-noNeigh:100,removal effect: FF-G0-1,2,sampled_ap,0.008804078964800455
+zhengzhou,attr:F14-noNeigh:100,removal effect: FF-G0-1,3,sampled_ap,0.006286071841841823
+zhengzhou,attr:F14-noNeigh:100,removal effect: FF-G0-1,4,sampled_ap,0.012790062384828549
+zhengzhou,attr:F14-noNeigh:100,removal effect: SAGE-G2-2,0,sampled_ap,0.0010975245824757507
+zhengzhou,attr:F14-noNeigh:100,removal effect: SAGE-G2-2,1,sampled_ap,0.02860250775178852
+zhengzhou,attr:F14-noNeigh:100,removal effect: SAGE-G2-2,2,sampled_ap,0.007886210726815085
+zhengzhou,attr:F14-noNeigh:100,removal effect: SAGE-G2-2,3,sampled_ap,0.02603159025330945
+zhengzhou,attr:F14-noNeigh:100,removal effect: SAGE-G2-2,4,sampled_ap,0.00223978724258711
+zhengzhou,attr:F14-noNeigh:100,removal effect: SAGE-G0-2,0,sampled_ap,0.00896818776362257
+zhengzhou,attr:F14-noNeigh:100,removal effect: SAGE-G0-2,1,sampled_ap,0.013907926209576704
+zhengzhou,attr:F14-noNeigh:100,removal effect: SAGE-G0-2,2,sampled_ap,4.242223552386459e-06
+zhengzhou,attr:F14-noNeigh:100,removal effect: SAGE-G0-2,3,sampled_ap,0.005671091298880437
+zhengzhou,attr:F14-noNeigh:100,removal effect: SAGE-G0-2,4,sampled_ap,-0.0012904266644346851
+zhengzhou,attr:F16-noD8:FULL,change from 18: SAGE-G2-2 - SAGE-G0-2,0,sampled_ap,0.03036061318567007
+zhengzhou,attr:F16-noD8:FULL,change from 18: SAGE-G2-2 - SAGE-G0-2,1,sampled_ap,-0.008221671169880575
+zhengzhou,attr:F16-noD8:FULL,change from 18: SAGE-G2-2 - SAGE-G0-2,2,sampled_ap,-0.006648766438755383
+zhengzhou,attr:F16-noD8:FULL,change from 18: SAGE-G2-2 - SAGE-G0-2,3,sampled_ap,-0.016391451395642093
+zhengzhou,attr:F16-noD8:FULL,change from 18: SAGE-G2-2 - SAGE-G0-2,4,sampled_ap,0.01727196798634778
+zhengzhou,attr:F16-noD8:FULL,change from 18: FF-G2-1 - FF-G0-1,0,sampled_ap,0.0024868240166110262
+zhengzhou,attr:F16-noD8:FULL,change from 18: FF-G2-1 - FF-G0-1,1,sampled_ap,0.014178725235782952
+zhengzhou,attr:F16-noD8:FULL,change from 18: FF-G2-1 - FF-G0-1,2,sampled_ap,0.0024459023728319136
+zhengzhou,attr:F16-noD8:FULL,change from 18: FF-G2-1 - FF-G0-1,3,sampled_ap,-0.04558170376230939
+zhengzhou,attr:F16-noD8:FULL,change from 18: FF-G2-1 - FF-G0-1,4,sampled_ap,0.0005846805874072936
+zhengzhou,attr:F16-noD8:FULL,removal effect: FF-G2-1,0,sampled_ap,0.0031634707111113936
+zhengzhou,attr:F16-noD8:FULL,removal effect: FF-G2-1,1,sampled_ap,0.037996004038064024
+zhengzhou,attr:F16-noD8:FULL,removal effect: FF-G2-1,2,sampled_ap,-0.002789093149987376
+zhengzhou,attr:F16-noD8:FULL,removal effect: FF-G2-1,3,sampled_ap,-0.02722125280976534
+zhengzhou,attr:F16-noD8:FULL,removal effect: FF-G2-1,4,sampled_ap,-0.005442415304838855
+zhengzhou,attr:F16-noD8:FULL,removal effect: FF-G0-1,0,sampled_ap,0.0006766466945003491
+zhengzhou,attr:F16-noD8:FULL,removal effect: FF-G0-1,1,sampled_ap,0.023817278802281128
+zhengzhou,attr:F16-noD8:FULL,removal effect: FF-G0-1,2,sampled_ap,-0.005234995522819252
+zhengzhou,attr:F16-noD8:FULL,removal effect: FF-G0-1,3,sampled_ap,0.018360450952544072
+zhengzhou,attr:F16-noD8:FULL,removal effect: FF-G0-1,4,sampled_ap,-0.006027095892246093
+zhengzhou,attr:F16-noD8:FULL,removal effect: SAGE-G2-2,0,sampled_ap,0.018574805120448012
+zhengzhou,attr:F16-noD8:FULL,removal effect: SAGE-G2-2,1,sampled_ap,0.01653902649987188
+zhengzhou,attr:F16-noD8:FULL,removal effect: SAGE-G2-2,2,sampled_ap,-0.011476918837266203
+zhengzhou,attr:F16-noD8:FULL,removal effect: SAGE-G2-2,3,sampled_ap,-0.019038620694599495
+zhengzhou,attr:F16-noD8:FULL,removal effect: SAGE-G2-2,4,sampled_ap,0.007559936489789476
+zhengzhou,attr:F16-noD8:FULL,removal effect: SAGE-G0-2,0,sampled_ap,-0.011785808065222059
+zhengzhou,attr:F16-noD8:FULL,removal effect: SAGE-G0-2,1,sampled_ap,0.02476069766975253
+zhengzhou,attr:F16-noD8:FULL,removal effect: SAGE-G0-2,2,sampled_ap,-0.004828152398510865
+zhengzhou,attr:F16-noD8:FULL,removal effect: SAGE-G0-2,3,sampled_ap,-0.002647169298957308
+zhengzhou,attr:F16-noD8:FULL,removal effect: SAGE-G0-2,4,sampled_ap,-0.00971203149655836
+zhengzhou,attr:F14-noNeigh:FULL,change from 18: SAGE-G2-2 - SAGE-G0-2,0,sampled_ap,-0.0019249073708239954
+zhengzhou,attr:F14-noNeigh:FULL,change from 18: SAGE-G2-2 - SAGE-G0-2,1,sampled_ap,-0.014622671613886196
+zhengzhou,attr:F14-noNeigh:FULL,change from 18: SAGE-G2-2 - SAGE-G0-2,2,sampled_ap,0.00161036799842414
+zhengzhou,attr:F14-noNeigh:FULL,change from 18: SAGE-G2-2 - SAGE-G0-2,3,sampled_ap,-0.005979468866694353
+zhengzhou,attr:F14-noNeigh:FULL,change from 18: SAGE-G2-2 - SAGE-G0-2,4,sampled_ap,0.02294693552859959
+zhengzhou,attr:F14-noNeigh:FULL,change from 18: FF-G2-1 - FF-G0-1,0,sampled_ap,0.017635272829574555
+zhengzhou,attr:F14-noNeigh:FULL,change from 18: FF-G2-1 - FF-G0-1,1,sampled_ap,0.006547035924152919
+zhengzhou,attr:F14-noNeigh:FULL,change from 18: FF-G2-1 - FF-G0-1,2,sampled_ap,0.017725741464246086
+zhengzhou,attr:F14-noNeigh:FULL,change from 18: FF-G2-1 - FF-G0-1,3,sampled_ap,-0.002888856447084271
+zhengzhou,attr:F14-noNeigh:FULL,change from 18: FF-G2-1 - FF-G0-1,4,sampled_ap,0.007532133223587163
+zhengzhou,attr:F14-noNeigh:FULL,removal effect: FF-G2-1,0,sampled_ap,0.026212279489076507
+zhengzhou,attr:F14-noNeigh:FULL,removal effect: FF-G2-1,1,sampled_ap,0.032465495009799394
+zhengzhou,attr:F14-noNeigh:FULL,removal effect: FF-G2-1,2,sampled_ap,-0.010540481234354304
+zhengzhou,attr:F14-noNeigh:FULL,removal effect: FF-G2-1,3,sampled_ap,-0.030308156623080784
+zhengzhou,attr:F14-noNeigh:FULL,removal effect: FF-G2-1,4,sampled_ap,-0.015130185573978272
+zhengzhou,attr:F14-noNeigh:FULL,removal effect: FF-G0-1,0,sampled_ap,0.008577006659501951
+zhengzhou,attr:F14-noNeigh:FULL,removal effect: FF-G0-1,1,sampled_ap,0.025918459085646495
+zhengzhou,attr:F14-noNeigh:FULL,removal effect: FF-G0-1,2,sampled_ap,-0.028266222698600352
+zhengzhou,attr:F14-noNeigh:FULL,removal effect: FF-G0-1,3,sampled_ap,-0.027419300175996475
+zhengzhou,attr:F14-noNeigh:FULL,removal effect: FF-G0-1,4,sampled_ap,-0.022662318797565473
+zhengzhou,attr:F14-noNeigh:FULL,removal effect: SAGE-G2-2,0,sampled_ap,0.007138253595704469
+zhengzhou,attr:F14-noNeigh:FULL,removal effect: SAGE-G2-2,1,sampled_ap,0.00282152360091531
+zhengzhou,attr:F14-noNeigh:FULL,removal effect: SAGE-G2-2,2,sampled_ap,-0.0033398187305475058
+zhengzhou,attr:F14-noNeigh:FULL,removal effect: SAGE-G2-2,3,sampled_ap,-0.005027955185187949
+zhengzhou,attr:F14-noNeigh:FULL,removal effect: SAGE-G2-2,4,sampled_ap,0.02047345118564925
+zhengzhou,attr:F14-noNeigh:FULL,removal effect: SAGE-G0-2,0,sampled_ap,0.009063160966528483
+zhengzhou,attr:F14-noNeigh:FULL,removal effect: SAGE-G0-2,1,sampled_ap,0.017444195214801506
+zhengzhou,attr:F14-noNeigh:FULL,removal effect: SAGE-G0-2,2,sampled_ap,-0.004950186728971573
+zhengzhou,attr:F14-noNeigh:FULL,removal effect: SAGE-G0-2,3,sampled_ap,0.0009515136815064218
+zhengzhou,attr:F14-noNeigh:FULL,removal effect: SAGE-G0-2,4,sampled_ap,-0.0024734843429503606
+zhengzhou,attr:F16-noD8,budget interaction: SAGE-G2-2 - SAGE-G0-2,0,sampled_ap,-0.024973341315142453
+zhengzhou,attr:F16-noD8,budget interaction: SAGE-G2-2 - SAGE-G0-2,1,sampled_ap,0.017876668141935156
+zhengzhou,attr:F16-noD8,budget interaction: SAGE-G2-2 - SAGE-G0-2,2,sampled_ap,0.014418324032256003
+zhengzhou,attr:F16-noD8,budget interaction: SAGE-G2-2 - SAGE-G0-2,3,sampled_ap,0.04009665148992257
+zhengzhou,attr:F16-noD8,budget interaction: SAGE-G2-2 - SAGE-G0-2,4,sampled_ap,-0.023884347253245425
+zhengzhou,attr:F16-noD8,budget interaction: FF-G2-1 - FF-G0-1,0,sampled_ap,-0.01382728843910461
+zhengzhou,attr:F16-noD8,budget interaction: FF-G2-1 - FF-G0-1,1,sampled_ap,-0.02265444098064835
+zhengzhou,attr:F16-noD8,budget interaction: FF-G2-1 - FF-G0-1,2,sampled_ap,-0.01048401909903866
+zhengzhou,attr:F16-noD8,budget interaction: FF-G2-1 - FF-G0-1,3,sampled_ap,0.04581834245656871
+zhengzhou,attr:F16-noD8,budget interaction: FF-G2-1 - FF-G0-1,4,sampled_ap,0.008720352355889405
+zhengzhou,attr:F14-noNeigh,budget interaction: SAGE-G2-2 - SAGE-G0-2,0,sampled_ap,-0.005945755810322796
+zhengzhou,attr:F14-noNeigh,budget interaction: SAGE-G2-2 - SAGE-G0-2,1,sampled_ap,0.029317253156097962
+zhengzhou,attr:F14-noNeigh,budget interaction: SAGE-G2-2 - SAGE-G0-2,2,sampled_ap,0.006271600504838545
+zhengzhou,attr:F14-noNeigh,budget interaction: SAGE-G2-2 - SAGE-G0-2,3,sampled_ap,0.026339967821123335
+zhengzhou,attr:F14-noNeigh,budget interaction: SAGE-G2-2 - SAGE-G0-2,4,sampled_ap,-0.019416721621577725
+zhengzhou,attr:F14-noNeigh,budget interaction: FF-G2-1 - FF-G0-1,0,sampled_ap,-0.0065657475271255206
+zhengzhou,attr:F14-noNeigh,budget interaction: FF-G2-1 - FF-G0-1,1,sampled_ap,-0.02891194787384664
+zhengzhou,attr:F14-noNeigh,budget interaction: FF-G2-1 - FF-G0-1,2,sampled_ap,-0.016383465920001658
+zhengzhou,attr:F14-noNeigh,budget interaction: FF-G2-1 - FF-G0-1,3,sampled_ap,-0.004965468718186072
+zhengzhou,attr:F14-noNeigh,budget interaction: FF-G2-1 - FF-G0-1,4,sampled_ap,-0.006572740477709141
+beijing,attr:F16-noD8:100,change from 18: SAGE-G2-2 - SAGE-G0-2,0,sampled_ap,0.09295698651031403
+beijing,attr:F16-noD8:100,change from 18: SAGE-G2-2 - SAGE-G0-2,1,sampled_ap,0.0012321699206557955
+beijing,attr:F16-noD8:100,change from 18: SAGE-G2-2 - SAGE-G0-2,2,sampled_ap,-0.02718112517995978
+beijing,attr:F16-noD8:100,change from 18: SAGE-G2-2 - SAGE-G0-2,3,sampled_ap,0.019601846163965757
+beijing,attr:F16-noD8:100,change from 18: SAGE-G2-2 - SAGE-G0-2,4,sampled_ap,-0.010022282385460858
+beijing,attr:F16-noD8:100,change from 18: FF-G2-1 - FF-G0-1,0,sampled_ap,-0.002194109742405925
+beijing,attr:F16-noD8:100,change from 18: FF-G2-1 - FF-G0-1,1,sampled_ap,-0.05235998576089042
+beijing,attr:F16-noD8:100,change from 18: FF-G2-1 - FF-G0-1,2,sampled_ap,-0.0038033040465943295
+beijing,attr:F16-noD8:100,change from 18: FF-G2-1 - FF-G0-1,3,sampled_ap,-0.0037370784702304947
+beijing,attr:F16-noD8:100,change from 18: FF-G2-1 - FF-G0-1,4,sampled_ap,-0.004792511999929354
+beijing,attr:F16-noD8:100,removal effect: FF-G2-1,0,sampled_ap,-0.022871635354099917
+beijing,attr:F16-noD8:100,removal effect: FF-G2-1,1,sampled_ap,-0.038961934796786946
+beijing,attr:F16-noD8:100,removal effect: FF-G2-1,2,sampled_ap,0.011123141010550341
+beijing,attr:F16-noD8:100,removal effect: FF-G2-1,3,sampled_ap,0.0016773775766241172
+beijing,attr:F16-noD8:100,removal effect: FF-G2-1,4,sampled_ap,0.019120150030872807
+beijing,attr:F16-noD8:100,removal effect: FF-G0-1,0,sampled_ap,-0.020677525611693948
+beijing,attr:F16-noD8:100,removal effect: FF-G0-1,1,sampled_ap,0.013398050964103403
+beijing,attr:F16-noD8:100,removal effect: FF-G0-1,2,sampled_ap,0.014926445057144744
+beijing,attr:F16-noD8:100,removal effect: FF-G0-1,3,sampled_ap,0.005414456046854643
+beijing,attr:F16-noD8:100,removal effect: FF-G0-1,4,sampled_ap,0.023912662030802112
+beijing,attr:F16-noD8:100,removal effect: SAGE-G2-2,0,sampled_ap,0.03447493436230564
+beijing,attr:F16-noD8:100,removal effect: SAGE-G2-2,1,sampled_ap,-0.009253547426844866
+beijing,attr:F16-noD8:100,removal effect: SAGE-G2-2,2,sampled_ap,-0.00036732798935462663
+beijing,attr:F16-noD8:100,removal effect: SAGE-G2-2,3,sampled_ap,0.02192058520566087
+beijing,attr:F16-noD8:100,removal effect: SAGE-G2-2,4,sampled_ap,0.005564182373864579
+beijing,attr:F16-noD8:100,removal effect: SAGE-G0-2,0,sampled_ap,-0.05848205214800839
+beijing,attr:F16-noD8:100,removal effect: SAGE-G0-2,1,sampled_ap,-0.010485717347500756
+beijing,attr:F16-noD8:100,removal effect: SAGE-G0-2,2,sampled_ap,0.026813797190605115
+beijing,attr:F16-noD8:100,removal effect: SAGE-G0-2,3,sampled_ap,0.0023187390416950504
+beijing,attr:F16-noD8:100,removal effect: SAGE-G0-2,4,sampled_ap,0.015586464759325347
+beijing,attr:F14-noNeigh:100,change from 18: SAGE-G2-2 - SAGE-G0-2,0,sampled_ap,0.04640501176479578
+beijing,attr:F14-noNeigh:100,change from 18: SAGE-G2-2 - SAGE-G0-2,1,sampled_ap,0.10775667782670988
+beijing,attr:F14-noNeigh:100,change from 18: SAGE-G2-2 - SAGE-G0-2,2,sampled_ap,-0.01892902181106919
+beijing,attr:F14-noNeigh:100,change from 18: SAGE-G2-2 - SAGE-G0-2,3,sampled_ap,0.043335953562420065
+beijing,attr:F14-noNeigh:100,change from 18: SAGE-G2-2 - SAGE-G0-2,4,sampled_ap,0.0002618501244044877
+beijing,attr:F14-noNeigh:100,change from 18: FF-G2-1 - FF-G0-1,0,sampled_ap,-0.00968423676830721
+beijing,attr:F14-noNeigh:100,change from 18: FF-G2-1 - FF-G0-1,1,sampled_ap,-0.06939266630825945
+beijing,attr:F14-noNeigh:100,change from 18: FF-G2-1 - FF-G0-1,2,sampled_ap,-0.015438500675011119
+beijing,attr:F14-noNeigh:100,change from 18: FF-G2-1 - FF-G0-1,3,sampled_ap,-0.021062682772742668
+beijing,attr:F14-noNeigh:100,change from 18: FF-G2-1 - FF-G0-1,4,sampled_ap,-0.005069953831262309
+beijing,attr:F14-noNeigh:100,removal effect: FF-G2-1,0,sampled_ap,-0.006286683297628437
+beijing,attr:F14-noNeigh:100,removal effect: FF-G2-1,1,sampled_ap,-0.03962369009608441
+beijing,attr:F14-noNeigh:100,removal effect: FF-G2-1,2,sampled_ap,-0.00978265444989368
+beijing,attr:F14-noNeigh:100,removal effect: FF-G2-1,3,sampled_ap,-0.003989022625496441
+beijing,attr:F14-noNeigh:100,removal effect: FF-G2-1,4,sampled_ap,0.01720337926668941
+beijing,attr:F14-noNeigh:100,removal effect: FF-G0-1,0,sampled_ap,0.0033975534706787713
+beijing,attr:F14-noNeigh:100,removal effect: FF-G0-1,1,sampled_ap,0.029768976212174947
+beijing,attr:F14-noNeigh:100,removal effect: FF-G0-1,2,sampled_ap,0.005655846225117445
+beijing,attr:F14-noNeigh:100,removal effect: FF-G0-1,3,sampled_ap,0.017073660147246317
+beijing,attr:F14-noNeigh:100,removal effect: FF-G0-1,4,sampled_ap,0.022273333097951653
+beijing,attr:F14-noNeigh:100,removal effect: SAGE-G2-2,0,sampled_ap,0.0307664477461419
+beijing,attr:F14-noNeigh:100,removal effect: SAGE-G2-2,1,sampled_ap,0.009791714642130467
+beijing,attr:F14-noNeigh:100,removal effect: SAGE-G2-2,2,sampled_ap,0.022566289607201362
+beijing,attr:F14-noNeigh:100,removal effect: SAGE-G2-2,3,sampled_ap,0.03373067933843349
+beijing,attr:F14-noNeigh:100,removal effect: SAGE-G2-2,4,sampled_ap,0.005930313245220226
+beijing,attr:F14-noNeigh:100,removal effect: SAGE-G0-2,0,sampled_ap,-0.015638564018653933
+beijing,attr:F14-noNeigh:100,removal effect: SAGE-G0-2,1,sampled_ap,-0.09796496318457948
+beijing,attr:F14-noNeigh:100,removal effect: SAGE-G0-2,2,sampled_ap,0.04149531141827051
+beijing,attr:F14-noNeigh:100,removal effect: SAGE-G0-2,3,sampled_ap,-0.009605274223986604
+beijing,attr:F14-noNeigh:100,removal effect: SAGE-G0-2,4,sampled_ap,0.005668463120815703
+beijing,attr:F16-noD8:FULL,change from 18: SAGE-G2-2 - SAGE-G0-2,0,sampled_ap,0.00485440272832699
+beijing,attr:F16-noD8:FULL,change from 18: SAGE-G2-2 - SAGE-G0-2,1,sampled_ap,0.035354464934030584
+beijing,attr:F16-noD8:FULL,change from 18: SAGE-G2-2 - SAGE-G0-2,2,sampled_ap,-0.021293905397641588
+beijing,attr:F16-noD8:FULL,change from 18: SAGE-G2-2 - SAGE-G0-2,3,sampled_ap,0.005849637157463124
+beijing,attr:F16-noD8:FULL,change from 18: SAGE-G2-2 - SAGE-G0-2,4,sampled_ap,-0.026282400312682405
+beijing,attr:F16-noD8:FULL,change from 18: FF-G2-1 - FF-G0-1,0,sampled_ap,-0.0009715599190500137
+beijing,attr:F16-noD8:FULL,change from 18: FF-G2-1 - FF-G0-1,1,sampled_ap,0.023720843223904775
+beijing,attr:F16-noD8:FULL,change from 18: FF-G2-1 - FF-G0-1,2,sampled_ap,-0.018079474152365622
+beijing,attr:F16-noD8:FULL,change from 18: FF-G2-1 - FF-G0-1,3,sampled_ap,-0.010522629922321003
+beijing,attr:F16-noD8:FULL,change from 18: FF-G2-1 - FF-G0-1,4,sampled_ap,-0.026393362022498867
+beijing,attr:F16-noD8:FULL,removal effect: FF-G2-1,0,sampled_ap,-0.07895505794103203
+beijing,attr:F16-noD8:FULL,removal effect: FF-G2-1,1,sampled_ap,0.0026615237199583697
+beijing,attr:F16-noD8:FULL,removal effect: FF-G2-1,2,sampled_ap,-0.013912060950688865
+beijing,attr:F16-noD8:FULL,removal effect: FF-G2-1,3,sampled_ap,0.004387310892771723
+beijing,attr:F16-noD8:FULL,removal effect: FF-G2-1,4,sampled_ap,-0.026597239616306778
+beijing,attr:F16-noD8:FULL,removal effect: FF-G0-1,0,sampled_ap,-0.07798349802198196
+beijing,attr:F16-noD8:FULL,removal effect: FF-G0-1,1,sampled_ap,-0.02105931950394635
+beijing,attr:F16-noD8:FULL,removal effect: FF-G0-1,2,sampled_ap,0.004167413201676906
+beijing,attr:F16-noD8:FULL,removal effect: FF-G0-1,3,sampled_ap,0.01490994081509267
+beijing,attr:F16-noD8:FULL,removal effect: FF-G0-1,4,sampled_ap,-0.0002038775938079107
+beijing,attr:F16-noD8:FULL,removal effect: SAGE-G2-2,0,sampled_ap,-0.013346323134439342
+beijing,attr:F16-noD8:FULL,removal effect: SAGE-G2-2,1,sampled_ap,0.01208104802906057
+beijing,attr:F16-noD8:FULL,removal effect: SAGE-G2-2,2,sampled_ap,0.0006431576525555149
+beijing,attr:F16-noD8:FULL,removal effect: SAGE-G2-2,3,sampled_ap,0.02488890850559572
+beijing,attr:F16-noD8:FULL,removal effect: SAGE-G2-2,4,sampled_ap,0.0015193192488767993
+beijing,attr:F16-noD8:FULL,removal effect: SAGE-G0-2,0,sampled_ap,-0.01820072586276633
+beijing,attr:F16-noD8:FULL,removal effect: SAGE-G0-2,1,sampled_ap,-0.02327341690496998
+beijing,attr:F16-noD8:FULL,removal effect: SAGE-G0-2,2,sampled_ap,0.021937063050197103
+beijing,attr:F16-noD8:FULL,removal effect: SAGE-G0-2,3,sampled_ap,0.01903927134813249
+beijing,attr:F16-noD8:FULL,removal effect: SAGE-G0-2,4,sampled_ap,0.027801719561559246
+beijing,attr:F14-noNeigh:FULL,change from 18: SAGE-G2-2 - SAGE-G0-2,0,sampled_ap,-0.024288026931005572
+beijing,attr:F14-noNeigh:FULL,change from 18: SAGE-G2-2 - SAGE-G0-2,1,sampled_ap,0.013209842260368383
+beijing,attr:F14-noNeigh:FULL,change from 18: SAGE-G2-2 - SAGE-G0-2,2,sampled_ap,0.026945296223809534
+beijing,attr:F14-noNeigh:FULL,change from 18: SAGE-G2-2 - SAGE-G0-2,3,sampled_ap,-0.04727018458329052
+beijing,attr:F14-noNeigh:FULL,change from 18: SAGE-G2-2 - SAGE-G0-2,4,sampled_ap,0.015649636621879487
+beijing,attr:F14-noNeigh:FULL,change from 18: FF-G2-1 - FF-G0-1,0,sampled_ap,-0.0009876416004515056
+beijing,attr:F14-noNeigh:FULL,change from 18: FF-G2-1 - FF-G0-1,1,sampled_ap,-0.015003546695124416
+beijing,attr:F14-noNeigh:FULL,change from 18: FF-G2-1 - FF-G0-1,2,sampled_ap,-0.05289705782619486
+beijing,attr:F14-noNeigh:FULL,change from 18: FF-G2-1 - FF-G0-1,3,sampled_ap,-0.011212271763969106
+beijing,attr:F14-noNeigh:FULL,change from 18: FF-G2-1 - FF-G0-1,4,sampled_ap,-0.01528315020690903
+beijing,attr:F14-noNeigh:FULL,removal effect: FF-G2-1,0,sampled_ap,0.007052469014925455
+beijing,attr:F14-noNeigh:FULL,removal effect: FF-G2-1,1,sampled_ap,-0.015326441770621368
+beijing,attr:F14-noNeigh:FULL,removal effect: FF-G2-1,2,sampled_ap,-0.02259554728775459
+beijing,attr:F14-noNeigh:FULL,removal effect: FF-G2-1,3,sampled_ap,0.003414899789150605
+beijing,attr:F14-noNeigh:FULL,removal effect: FF-G2-1,4,sampled_ap,-0.005403689535933842
+beijing,attr:F14-noNeigh:FULL,removal effect: FF-G0-1,0,sampled_ap,0.008040110615377072
+beijing,attr:F14-noNeigh:FULL,removal effect: FF-G0-1,1,sampled_ap,-0.00032289507549693175
+beijing,attr:F14-noNeigh:FULL,removal effect: FF-G0-1,2,sampled_ap,0.030301510538440435
+beijing,attr:F14-noNeigh:FULL,removal effect: FF-G0-1,3,sampled_ap,0.014627171553119711
+beijing,attr:F14-noNeigh:FULL,removal effect: FF-G0-1,4,sampled_ap,0.009879460670975226
+beijing,attr:F14-noNeigh:FULL,removal effect: SAGE-G2-2,0,sampled_ap,-0.010831670484528044
+beijing,attr:F14-noNeigh:FULL,removal effect: SAGE-G2-2,1,sampled_ap,0.0032600795437236485
+beijing,attr:F14-noNeigh:FULL,removal effect: SAGE-G2-2,2,sampled_ap,0.02053319003136217
+beijing,attr:F14-noNeigh:FULL,removal effect: SAGE-G2-2,3,sampled_ap,-0.027709633675465972
+beijing,attr:F14-noNeigh:FULL,removal effect: SAGE-G2-2,4,sampled_ap,-0.010220182468336558
+beijing,attr:F14-noNeigh:FULL,removal effect: SAGE-G0-2,0,sampled_ap,0.013456356446477524
+beijing,attr:F14-noNeigh:FULL,removal effect: SAGE-G0-2,1,sampled_ap,-0.009949762716644717
+beijing,attr:F14-noNeigh:FULL,removal effect: SAGE-G0-2,2,sampled_ap,-0.006412106192447364
+beijing,attr:F14-noNeigh:FULL,removal effect: SAGE-G0-2,3,sampled_ap,0.019560550907824548
+beijing,attr:F14-noNeigh:FULL,removal effect: SAGE-G0-2,4,sampled_ap,-0.025869819090216017
+beijing,attr:F16-noD8,budget interaction: SAGE-G2-2 - SAGE-G0-2,0,sampled_ap,0.08810258378198704
+beijing,attr:F16-noD8,budget interaction: SAGE-G2-2 - SAGE-G0-2,1,sampled_ap,-0.03412229501337479
+beijing,attr:F16-noD8,budget interaction: SAGE-G2-2 - SAGE-G0-2,2,sampled_ap,-0.005887219782318192
+beijing,attr:F16-noD8,budget interaction: SAGE-G2-2 - SAGE-G0-2,3,sampled_ap,0.013752209006502633
+beijing,attr:F16-noD8,budget interaction: SAGE-G2-2 - SAGE-G0-2,4,sampled_ap,0.016260117927221547
+beijing,attr:F16-noD8,budget interaction: FF-G2-1 - FF-G0-1,0,sampled_ap,-0.0012225498233559113
+beijing,attr:F16-noD8,budget interaction: FF-G2-1 - FF-G0-1,1,sampled_ap,-0.07608082898479519
+beijing,attr:F16-noD8,budget interaction: FF-G2-1 - FF-G0-1,2,sampled_ap,0.014276170105771292
+beijing,attr:F16-noD8,budget interaction: FF-G2-1 - FF-G0-1,3,sampled_ap,0.006785551452090508
+beijing,attr:F16-noD8,budget interaction: FF-G2-1 - FF-G0-1,4,sampled_ap,0.021600850022569514
+beijing,attr:F14-noNeigh,budget interaction: SAGE-G2-2 - SAGE-G0-2,0,sampled_ap,0.07069303869580135
+beijing,attr:F14-noNeigh,budget interaction: SAGE-G2-2 - SAGE-G0-2,1,sampled_ap,0.0945468355663415
+beijing,attr:F14-noNeigh,budget interaction: SAGE-G2-2 - SAGE-G0-2,2,sampled_ap,-0.04587431803487872
+beijing,attr:F14-noNeigh,budget interaction: SAGE-G2-2 - SAGE-G0-2,3,sampled_ap,0.09060613814571059
+beijing,attr:F14-noNeigh,budget interaction: SAGE-G2-2 - SAGE-G0-2,4,sampled_ap,-0.015387786497475
+beijing,attr:F14-noNeigh,budget interaction: FF-G2-1 - FF-G0-1,0,sampled_ap,-0.008696595167855705
+beijing,attr:F14-noNeigh,budget interaction: FF-G2-1 - FF-G0-1,1,sampled_ap,-0.054389119613135035
+beijing,attr:F14-noNeigh,budget interaction: FF-G2-1 - FF-G0-1,2,sampled_ap,0.03745855715118374
+beijing,attr:F14-noNeigh,budget interaction: FF-G2-1 - FF-G0-1,3,sampled_ap,-0.009850411008773562
+beijing,attr:F14-noNeigh,budget interaction: FF-G2-1 - FF-G0-1,4,sampled_ap,0.010213196375646721
