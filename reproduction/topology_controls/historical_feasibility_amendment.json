@@ -1,0 +1,14 @@
+{
+  "status": "complete",
+  "before_any_new_model_fitting": true,
+  "graph_algorithm_changed": false,
+  "graph_bytes_changed": false,
+  "reused_accepted_graphs": 945,
+  "old_floor": 0.08,
+  "new_floor": 0.075,
+  "old_graph_config_sha256": "7bd3c59a32dbacde0d9ccb7e8ba4452369d42ef51ea843d9b442cbf9657feaa9",
+  "new_graph_config_sha256": "988dcc3c81555a4aa695eaf1d1524ccb7d8807cd30cfe22fe7da41c91135eaf3",
+  "archived_receipts_sha256": "2494c8ec8148baf0cb9a741ab91e63e9e16e0634e1ec53138a44dc7074926c76",
+  "builder_sha256": "ba684f1681e4be16a4125ee72271fa19ac1ab7f693314d14440ad9b0998379e1",
+  "reason": "Exact tiled optimum of 941/11779 in one inner partition; 943 needed for 8%."
+}

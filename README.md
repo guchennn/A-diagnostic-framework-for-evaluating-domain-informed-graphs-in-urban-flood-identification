@@ -24,6 +24,7 @@ input/source hashes:
 | Full eligible-city to held-out graph-group migration | [Transition counts](reproduction/final_audit/group_migration/transition_matrix.csv) and [group-definition sensitivity](reproduction/final_audit/local_references/group_definition_sensitivity.csv) |
 | Controlled ranking experiments and archived synthetic graph analyses | [Code, results and Figure 8](reproduction/controlled_validation/README.md) |
 | Recovered FULL-budget records and city replay coverage | [Record audit](reproduction/recovery_audit/README.md) |
+| Degree- and distance-matched local graph controls | [Construction, independent selection and paired analysis](reproduction/topology_controls/README.md) |
 
 Verify the supplied final-audit aggregates with standard Python, without original
 city observations or third-party packages:

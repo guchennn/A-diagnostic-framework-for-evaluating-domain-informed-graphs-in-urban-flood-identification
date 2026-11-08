@@ -1,0 +1,20 @@
+run_id: topology-controls-v1-20261108
+preregistered: false
+cities: [zhengzhou, beijing]
+outer_folds: [0, 1, 2, 3, 4]
+trajectories: ['1', '2', '3', '4', '5']
+inner_folds: [0, 1, 2]
+graph_realizations: [1, 2, 3]
+candidates: [SMALL, MEDIUM]
+outer_seeds: [NEURAL-1, NEURAL-2, NEURAL-3]
+cpu_threads: 1
+variants:
+  - {id: FF-G7-1, model: Fixed-filter, steps: 1}
+  - {id: SAGE-G7-2, model: GraphSAGE-G2, layers: 2}
+graph:
+  preserve_global_distance_counts: true
+  tile_size_cells: 32
+  time_limit_seconds: 5
+  mip_rel_gap: 0.01
+  min_changed_fraction: 0.075
+  minimum_edges_for_change_check: 1

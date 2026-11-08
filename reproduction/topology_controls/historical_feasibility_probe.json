@@ -1,0 +1,25 @@
+{
+  "scope": "CPU-only structure probes before new model fitting or predictive scores",
+  "reported_by": "topology_control_design independent agent",
+  "failed_keys": ["beijing/f2/inner-t5-i1/test-r1", "beijing/f2/inner-t5-i1/test-r2", "beijing/f2/inner-t5-i1/test-r3"],
+  "edges": 11779,
+  "changed_edges_at_original_origin": 941,
+  "changed_fraction": 0.07988793615756855,
+  "required_changed_edges_at_original_floor": 943,
+  "requested_mip_gaps_checked": [0.01, 0.0],
+  "same_changed_count_for_all_three_realizations_at_both_gaps": true,
+  "maximum_reported_solver_gap": 1.7499476094973182e-16,
+  "solver_fallback_tiles": 0,
+  "alternative_offset_probe": {
+    "row_offset": 16,
+    "column_offset": 16,
+    "changed_edges": 1061,
+    "changed_fraction": 0.0900755581967909,
+    "all_constraints_preserved": true,
+    "adopted": false
+  },
+  "remaining_original_setting_probes": 15,
+  "remaining_minimum_changed_fraction": 0.07988793615756855,
+  "remaining_all_pass_uniform_0_075_floor": true,
+  "decision": "Keep the single-origin algorithm and all constraints; amend only the uniform feasibility floor to 0.075 before fitting."
+}

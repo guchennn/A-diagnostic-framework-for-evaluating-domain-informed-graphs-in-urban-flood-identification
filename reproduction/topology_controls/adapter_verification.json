@@ -1,0 +1,49 @@
+{
+  "status": "passed",
+  "metric_conformance": {
+    "fixtures": 40,
+    "metrics_per_fixture": 4,
+    "seed": 731,
+    "scores": "synthetic uniform scores rounded to one decimal, threshold ties retained",
+    "max_absolute_difference": 0.0,
+    "historical_source_sha256": "cb05c969c8e8482ec2b95a6752f5b5540194963aaa1c84228fc33bc05906e514",
+    "public_helper_files": [
+      "scripts/metrics.py",
+      "scripts/evaluate_predictions.py",
+      "src/floodgnn_ceus/inference.py"
+    ]
+  },
+  "focused_tests": {
+    "passed": 25,
+    "gpu_execution": false
+  },
+  "utf8_checked_files": [
+    "scripts/run_topology_controls.py",
+    "scripts/analyze_topology_controls.py",
+    "configs/topology_controls_v1.yaml",
+    "src/floodgnn_ceus/topology_controls.py",
+    "tests/test_topology_controls.py",
+    "tests/test_topology_training.py",
+    "tests/test_topology_analysis.py",
+    "reproduction/topology_controls/Protocol.md",
+    "reproduction/topology_controls/README.md"
+  ],
+  "public_city_replay_completed": false,
+  "historical_experiment_and_public_adapter_are_distinct": true,
+  "whole_suite": {
+    "passed": 473,
+    "seconds": 83.49,
+    "cuda_visible_devices": "",
+    "pythonpath": "absolute path to this checkout src supplied by test invocation",
+    "gpu_tests_not_exercised": true,
+    "initial_attempt": "471 passed; 2 cwd-changing subprocess tests failed under a relative PYTHONPATH; corrected environment rerun passed"
+  },
+  "builder_sha256": "ba684f1681e4be16a4125ee72271fa19ac1ab7f693314d14440ad9b0998379e1",
+  "builder_byte_identical_to_experiment": true,
+  "post_amendment_focused_tests": {
+    "passed": 25,
+    "seconds": 6.4,
+    "gpu_execution": false,
+    "uniform_feasibility_floor": 0.075
+  }
+}
