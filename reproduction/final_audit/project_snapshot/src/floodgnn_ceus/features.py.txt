@@ -1,0 +1,1064 @@
+"""Deterministic feature preparation shared by both study cities."""
+
+from __future__ import annotations
+
+import hashlib
+import json
+import math
+import os
+from collections.abc import Mapping
+from datetime import UTC, datetime
+from pathlib import Path
+
+import geopandas as gpd
+import numpy as np
+import pandas as pd
+import pyarrow as pa
+import pyarrow.parquet as pq
+import rasterio
+import requests
+import shapely
+import yaml
+from affine import Affine
+from rasterio.features import shapes
+from rasterio.transform import from_origin
+from rasterio.warp import Resampling, reproject
+from scipy import ndimage
+from shapely.geometry import shape
+from shapely.geometry.base import BaseGeometry
+from shapely.strtree import STRtree
+
+from floodgnn_ceus.io import canonical_json_bytes, sha256_bytes, sha256_file
+from floodgnn_ceus.protocol import EXPECTED_FEATURE_NAMES, LoadedProtocol, load_protocol
+from floodgnn_ceus.sources import (
+    RAW_SOURCE_COLUMNS,
+    RAW_SOURCE_SCHEMA,
+    SourceRecord,
+    download_http,
+    ensure_free_space,
+    write_source_receipt,
+)
+
+FEATURE_SOURCE_COLUMNS = (
+    "city_id",
+    "source_product",
+    "version_or_release",
+    "source_url_or_doi",
+    "license",
+    "retrieved_at",
+    "raw_file_sha256",
+    "native_resolution",
+    "reference_date_or_period",
+    "event_relative_status",
+    "aggregation_or_resampling_operator",
+    "output_column",
+    "output_hash",
+)
+
+
+def select_worldcover_tiles(
+    tile_index: gpd.GeoDataFrame,
+    city_aois: Mapping[str, gpd.GeoDataFrame],
+    *,
+    context_buffer_m: int,
+) -> dict[str, tuple[str, ...]]:
+    """Select WorldCover tiles with positive-area overlap of each buffered AOI."""
+    if tile_index.crs is None or tile_index.crs.to_epsg() != 4326:
+        raise ValueError("WorldCover tile index must use EPSG:4326")
+    if "ll_tile" not in tile_index or context_buffer_m < 0:
+        raise ValueError("invalid WorldCover tile selection input")
+    selected: dict[str, tuple[str, ...]] = {}
+    for city_id, aoi in city_aois.items():
+        if len(aoi) != 1 or aoi.crs is None or not aoi.crs.is_projected:
+            raise ValueError(f"{city_id} AOI must contain one projected geometry")
+        context = (
+            gpd.GeoSeries(
+                [aoi.geometry.iloc[0].buffer(context_buffer_m)],
+                crs=aoi.crs,
+            )
+            .to_crs(4326)
+            .iloc[0]
+        )
+        geometries = tile_index.geometry.array
+        overlap = shapely.intersects(geometries, context) & ~shapely.touches(geometries, context)
+        tile_ids = tuple(sorted(set(tile_index.loc[overlap, "ll_tile"].astype(str))))
+        if not tile_ids:
+            raise ValueError(f"WorldCover does not cover {city_id} context")
+        selected[city_id] = tile_ids
+    return selected
+
+
+def aggregate_class_fractions(
+    classes: np.ndarray,
+    *,
+    factor: int,
+    built_class: int = 50,
+    water_class: int = 80,
+    vegetation_classes: tuple[int, ...] = (10, 20, 30, 90, 95, 100),
+    cropland_class: int = 40,
+    nodata: int = 0,
+) -> tuple[np.ndarray, np.ndarray, np.ndarray, np.ndarray, np.ndarray]:
+    """Aggregate the fixed WorldCover classes over valid pixels."""
+    if classes.ndim != 2 or factor <= 0:
+        raise ValueError("class raster and aggregation factor are invalid")
+    height, width = classes.shape
+    if height % factor or width % factor:
+        raise ValueError("class raster dimensions must be divisible by factor")
+    blocks = classes.reshape(height // factor, factor, width // factor, factor)
+    valid = np.count_nonzero(blocks != nodata, axis=(1, 3)).astype(np.uint16)
+    built_count = np.count_nonzero(blocks == built_class, axis=(1, 3))
+    water_count = np.count_nonzero(blocks == water_class, axis=(1, 3))
+    vegetation_count = np.count_nonzero(np.isin(blocks, vegetation_classes), axis=(1, 3))
+    cropland_count = np.count_nonzero(blocks == cropland_class, axis=(1, 3))
+    built = np.full(valid.shape, np.nan, dtype=np.float32)
+    water = np.full(valid.shape, np.nan, dtype=np.float32)
+    vegetation = np.full(valid.shape, np.nan, dtype=np.float32)
+    cropland = np.full(valid.shape, np.nan, dtype=np.float32)
+    np.divide(built_count, valid, out=built, where=valid > 0)
+    np.divide(water_count, valid, out=water, where=valid > 0)
+    np.divide(vegetation_count, valid, out=vegetation, where=valid > 0)
+    np.divide(cropland_count, valid, out=cropland, where=valid > 0)
+    return built, water, vegetation, cropland, valid
+
+
+def distance_to_class_boundary(
+    classes: np.ndarray,
+    *,
+    transform: Affine,
+    class_value: int,
+    x: np.ndarray,
+    y: np.ndarray,
+    maximum_distance_m: float,
+) -> np.ndarray:
+    """Measure projected point distance to the nearest class-pixel boundary."""
+    query_x = np.asarray(x, dtype=np.float64)
+    query_y = np.asarray(y, dtype=np.float64)
+    if (
+        classes.ndim != 2
+        or query_x.ndim != 1
+        or query_y.ndim != 1
+        or query_x.shape != query_y.shape
+        or maximum_distance_m <= 0
+    ):
+        raise ValueError("class-boundary distance inputs are invalid")
+    mask = classes == class_value
+    if not mask.any():
+        return np.full(query_x.shape, maximum_distance_m, dtype=np.float32)
+    polygons = np.asarray(
+        [
+            shape(geometry)
+            for geometry, value in shapes(
+                mask.astype(np.uint8),
+                mask=mask,
+                transform=transform,
+                connectivity=8,
+            )
+            if value == 1
+        ],
+        dtype=object,
+    )
+    boundaries = shapely.boundary(polygons)
+    points = shapely.points(query_x, query_y)
+    nearest = STRtree(boundaries).nearest(points)
+    distance = np.asarray(shapely.distance(points, boundaries[nearest]), dtype=np.float64)
+    return np.minimum(distance, maximum_distance_m).astype(np.float32)
+
+
+def retain_large_built_components(
+    classes: np.ndarray,
+    *,
+    built_class: int,
+    pixel_size_m: int,
+    minimum_component_km2: float,
+) -> tuple[np.ndarray, int, int]:
+    """Retain 8-connected built-up components meeting the fixed area threshold."""
+    if classes.ndim != 2 or pixel_size_m <= 0 or minimum_component_km2 <= 0:
+        raise ValueError("built-up component inputs are invalid")
+    labels, component_count = ndimage.label(
+        classes == built_class,
+        structure=np.ones((3, 3), dtype=np.uint8),
+    )
+    minimum_pixels = math.ceil(minimum_component_km2 * 1_000_000 / (pixel_size_m * pixel_size_m))
+    counts = np.bincount(labels.ravel())
+    keep = counts >= minimum_pixels
+    keep[0] = False
+    retained_count = int(np.count_nonzero(keep))
+    return keep[labels], int(component_count), retained_count
+
+
+def candidate_node_mask(
+    distance_to_built_m: np.ndarray,
+    water_fraction: np.ndarray,
+    *,
+    buffer_m: int,
+    exclude_water_fraction_above: float,
+) -> np.ndarray:
+    """Select nodes within the built-up buffer and not dominated by water."""
+    if distance_to_built_m.shape != water_fraction.shape:
+        raise ValueError("candidate node arrays must have matching shapes")
+    return (
+        np.isfinite(distance_to_built_m)
+        & (distance_to_built_m <= buffer_m)
+        & np.isfinite(water_fraction)
+        & (water_fraction <= exclude_water_fraction_above)
+    )
+
+
+def _aligned_bounds(geometry: BaseGeometry, alignment_m: int) -> tuple[float, ...]:
+    min_x, min_y, max_x, max_y = geometry.bounds
+    return (
+        math.floor(min_x / alignment_m) * alignment_m,
+        math.floor(min_y / alignment_m) * alignment_m,
+        math.ceil(max_x / alignment_m) * alignment_m,
+        math.ceil(max_y / alignment_m) * alignment_m,
+    )
+
+
+def _tile_url(source: Mapping[str, object], tile_id: str) -> str:
+    template = source.get("url_template")
+    if not isinstance(template, str):
+        raise TypeError("WorldCover URL template must be a string")
+    return template.format(ll_tile=tile_id)
+
+
+def _head_tile(session: requests.Session, url: str) -> dict[str, object]:
+    try:
+        response = session.head(url, timeout=(10, 60), allow_redirects=False)
+    except requests.RequestException:
+        raise OSError("WorldCover metadata request failed") from None
+    try:
+        if response.status_code != 200:
+            raise OSError("WorldCover metadata request returned an unexpected status")
+        try:
+            byte_count = int(response.headers["Content-Length"])
+        except (KeyError, TypeError, ValueError):
+            raise OSError("WorldCover content length is unavailable") from None
+        if byte_count <= 0:
+            raise OSError("WorldCover content length is invalid")
+        return {
+            "bytes": byte_count,
+            "etag": response.headers.get("ETag"),
+            "last_modified": response.headers.get("Last-Modified"),
+        }
+    finally:
+        response.close()
+
+
+def _read_existing_tile_record(destination: Path, raw_root: Path) -> SourceRecord | None:
+    receipt = destination.with_name(f"{destination.name}.source.json")
+    if not receipt.exists():
+        return None
+    try:
+        record = SourceRecord(**json.loads(receipt.read_text(encoding="utf-8")))
+    except (OSError, TypeError, ValueError, json.JSONDecodeError):
+        raise ValueError("existing WorldCover source receipt is invalid") from None
+    expected_path = destination.relative_to(raw_root).as_posix()
+    if (
+        record.source_id != "worldcover_2021_v200"
+        or record.asset_key not in destination.name
+        or record.relative_path != expected_path
+    ):
+        raise ValueError("existing WorldCover source receipt does not match its tile")
+    return record
+
+
+def _download_tile(
+    session: requests.Session,
+    raw_root: Path,
+    protocol: LoadedProtocol,
+    tile_id: str,
+    head: Mapping[str, object],
+) -> tuple[SourceRecord, Path]:
+    source = protocol.sources["worldcover_2021_v200"]
+    filename = f"ESA_WorldCover_10m_2021_v200_{tile_id}_Map.tif"
+    destination = raw_root / "worldcover_2021_v200" / "v200" / "map" / filename
+    existing = _read_existing_tile_record(destination, raw_root)
+    expected_checksums = {"sha256": existing.sha256} if existing is not None else None
+    url = _tile_url(source, tile_id)
+    download = download_http(
+        session,
+        url,
+        destination,
+        asset_identity=f"worldcover:2021:v200:{tile_id}:map",
+        expected_size=int(head["bytes"]),
+        expected_checksums=expected_checksums,
+    )
+    retrieved_at = (
+        existing.retrieved_at
+        if existing is not None
+        else datetime.now(UTC).replace(microsecond=0).isoformat().replace("+00:00", "Z")
+    )
+    record = SourceRecord(
+        source_id="worldcover_2021_v200",
+        city_id="all",
+        asset_key=tile_id,
+        provider=str(source["provider"]),
+        version_or_release=str(source["version"]),
+        source_url_or_doi=str(source["url_template"]),
+        license=str(source["license"]),
+        privacy_status=str(source["privacy_status"]),
+        reference_date_or_period=str(source["year"]),
+        relative_path=destination.relative_to(raw_root).as_posix(),
+        retrieved_at=retrieved_at,
+        bytes=download.bytes_written,
+        sha256=download.sha256,
+        upstream_checksum_algorithm=None,
+        upstream_checksum=None,
+        request_sha256=sha256_bytes(canonical_json_bytes({"method": "GET", "url": url})),
+    )
+    return record, write_source_receipt(record, raw_root, protocol)
+
+
+def _write_projected_classes(
+    source_path: Path,
+    destination: Path,
+    *,
+    crs: object,
+    bounds: tuple[float, ...],
+    tile_id: str,
+    resolution_m: int = 10,
+) -> Path:
+    left, bottom, right, top = bounds
+    width = round((right - left) / resolution_m)
+    height = round((top - bottom) / resolution_m)
+    transform = from_origin(left, top, resolution_m, resolution_m)
+    destination.parent.mkdir(parents=True, exist_ok=True)
+    partial = destination.with_name(f"{destination.name}.part")
+    profile = {
+        "driver": "GTiff",
+        "width": width,
+        "height": height,
+        "count": 1,
+        "dtype": "uint8",
+        "crs": crs,
+        "transform": transform,
+        "nodata": 0,
+        "compress": "DEFLATE",
+        "zlevel": 6,
+        "predictor": 1,
+        "tiled": True,
+        "blockxsize": 512,
+        "blockysize": 512,
+        "BIGTIFF": "IF_SAFER",
+    }
+    with rasterio.open(source_path) as source, rasterio.open(partial, "w", **profile) as target:
+        reproject(
+            source=rasterio.band(source, 1),
+            destination=rasterio.band(target, 1),
+            src_transform=source.transform,
+            src_crs=source.crs,
+            src_nodata=source.nodata if source.nodata is not None else 0,
+            dst_transform=transform,
+            dst_crs=crs,
+            dst_nodata=0,
+            resampling=Resampling.nearest,
+            num_threads=1,
+            init_dest_nodata=True,
+        )
+        target.set_band_description(1, "worldcover_class")
+        target.update_tags(
+            source_id="worldcover_2021_v200",
+            source_tile=tile_id,
+            resampling="nearest",
+        )
+    os.replace(partial, destination)
+    return destination
+
+
+def _write_raster(
+    destination: Path,
+    arrays: list[np.ndarray],
+    *,
+    crs: object,
+    transform: object,
+    dtype: str,
+    nodata: float,
+    descriptions: tuple[str, ...],
+) -> Path:
+    destination.parent.mkdir(parents=True, exist_ok=True)
+    partial = destination.with_name(f"{destination.name}.part")
+    profile = {
+        "driver": "GTiff",
+        "width": arrays[0].shape[1],
+        "height": arrays[0].shape[0],
+        "count": len(arrays),
+        "dtype": dtype,
+        "crs": crs,
+        "transform": transform,
+        "nodata": nodata,
+        "compress": "DEFLATE",
+        "zlevel": 6,
+        "predictor": 3 if dtype == "float32" else 1,
+        "tiled": True,
+        "blockxsize": 256,
+        "blockysize": 256,
+    }
+    with rasterio.open(partial, "w", **profile) as target:
+        for band, (array, description) in enumerate(zip(arrays, descriptions, strict=True), 1):
+            target.write(array.astype(dtype, copy=False), band)
+            target.set_band_description(band, description)
+        target.update_tags(source_id="worldcover_2021_v200")
+    os.replace(partial, destination)
+    return destination
+
+
+def _write_geoparquet(frame: gpd.GeoDataFrame, destination: Path) -> Path:
+    destination.parent.mkdir(parents=True, exist_ok=True)
+    partial = destination.with_name(f"{destination.name}.part")
+    frame.to_parquet(partial, index=False, compression="zstd", row_group_size=65_536)
+    os.replace(partial, destination)
+    return destination
+
+
+def write_worldcover_manifest(records: list[SourceRecord], destination: Path) -> Path:
+    """Write the validated WorldCover tile records as a deterministic snapshot."""
+    rows = [
+        {name: getattr(record, name) for name in RAW_SOURCE_COLUMNS}
+        for record in sorted(records, key=lambda item: item.asset_key)
+    ]
+    try:
+        table = pa.Table.from_pylist(rows, schema=RAW_SOURCE_SCHEMA)
+    except pa.ArrowException:
+        raise ValueError("WorldCover manifest records are invalid") from None
+    destination.parent.mkdir(parents=True, exist_ok=True)
+    partial = destination.with_name(f"{destination.name}.part")
+    pq.write_table(
+        table,
+        partial,
+        compression="zstd",
+        use_dictionary=False,
+        write_statistics=False,
+    )
+    os.replace(partial, destination)
+    return destination
+
+
+def _relative(root: Path, path: Path) -> str:
+    return path.relative_to(root).as_posix()
+
+
+def _file_record(root: Path, path: Path) -> dict[str, object]:
+    return {
+        "path": _relative(root, path),
+        "bytes": path.stat().st_size,
+        "sha256": sha256_file(path),
+    }
+
+
+def _process_city_worldcover(
+    root: Path,
+    city_id: str,
+    tile_id: str,
+    tile_path: Path,
+    protocol: LoadedProtocol,
+) -> dict[str, object]:
+    city_root = root / "data" / "interim" / city_id
+    aoi = gpd.read_parquet(city_root / "admin_aoi.parquet")
+    grid = gpd.read_parquet(city_root / "candidate_grid.parquet")
+    grid = grid.sort_values(["row", "column"], kind="stable").reset_index(drop=True)
+    grid_resolution = int(protocol.protocol["grid"]["resolution_m"])
+    context_buffer = int(protocol.protocol["terrain"]["context_buffer_m"])
+    context = aoi.geometry.iloc[0].buffer(context_buffer)
+    bounds = _aligned_bounds(context, grid_resolution)
+    class_path = _write_projected_classes(
+        tile_path,
+        city_root / "worldcover_10m.tif",
+        crs=aoi.crs,
+        bounds=bounds,
+        tile_id=tile_id,
+    )
+    with rasterio.open(class_path) as source:
+        classes = source.read(1)
+        class_transform = source.transform
+    class_shape = list(classes.shape)
+    factor = grid_resolution // 10
+    source_classes = protocol.sources["worldcover_2021_v200"]["classes"]
+    vegetation_classes = tuple(
+        int(source_classes[name])
+        for name in (
+            "tree_cover",
+            "shrubland",
+            "grassland",
+            "herbaceous_wetland",
+            "mangroves",
+            "moss_and_lichen",
+        )
+    )
+    water_class = int(source_classes["permanent_water"])
+    built, water, vegetation, cropland, valid = aggregate_class_fractions(
+        classes,
+        factor=factor,
+        built_class=int(source_classes["built_up"]),
+        water_class=water_class,
+        vegetation_classes=vegetation_classes,
+        cropland_class=int(source_classes["cropland"]),
+    )
+    class_values, class_counts = np.unique(classes, return_counts=True)
+    aoi_contract = protocol.protocol["aoi"]
+    retained, component_count, retained_count = retain_large_built_components(
+        classes,
+        built_class=int(aoi_contract["built_up_class"]),
+        pixel_size_m=10,
+        minimum_component_km2=float(aoi_contract["minimum_component_km2"]),
+    )
+    if not retained.any():
+        raise ValueError(f"no qualifying WorldCover built-up component for {city_id}")
+    distance_to_built = ndimage.distance_transform_edt(~retained, sampling=(10, 10))
+    del retained
+
+    left, _, _, top = bounds[0], bounds[1], bounds[2], bounds[3]
+    rows = np.floor((top - grid["center_y"].to_numpy()) / grid_resolution).astype(int)
+    columns = np.floor((grid["center_x"].to_numpy() - left) / grid_resolution).astype(int)
+    if (
+        rows.min() < 0
+        or columns.min() < 0
+        or rows.max() >= built.shape[0]
+        or columns.max() >= built.shape[1]
+    ):
+        raise ValueError(f"candidate grid falls outside WorldCover context for {city_id}")
+    built_values = built[rows, columns]
+    water_values = water[rows, columns]
+    vegetation_values = vegetation[rows, columns]
+    cropland_values = cropland[rows, columns]
+    valid_fraction = valid[rows, columns].astype(np.float32) / (factor * factor)
+    raster_x = left + (np.arange(built.shape[1]) + 0.5) * grid_resolution
+    raster_y = top - (np.arange(built.shape[0]) + 0.5) * grid_resolution
+    query_x, query_y = np.meshgrid(raster_x, raster_y)
+    distance_to_water = distance_to_class_boundary(
+        classes,
+        transform=class_transform,
+        class_value=water_class,
+        x=query_x.ravel(),
+        y=query_y.ravel(),
+        maximum_distance_m=context_buffer,
+    ).reshape(built.shape)
+    water_distance_values = distance_to_water[rows, columns]
+    del classes, query_x, query_y
+    class_rows = (top - grid["center_y"].to_numpy()) / 10 - 0.5
+    class_columns = (grid["center_x"].to_numpy() - left) / 10 - 0.5
+    distance_values = ndimage.map_coordinates(
+        distance_to_built,
+        [class_rows, class_columns],
+        order=1,
+        mode="constant",
+        cval=np.inf,
+        prefilter=False,
+    )
+    del distance_to_built
+    fractions = grid[
+        ["city_id", "grid_id", "row", "column", "center_x", "center_y", "geometry"]
+    ].copy()
+    fractions["built_up_fraction"] = built_values
+    fractions["water_fraction"] = water_values
+    fractions["vegetation_fraction"] = vegetation_values
+    fractions["cropland_fraction"] = cropland_values
+    fractions["distance_to_WorldCover_waterbody"] = water_distance_values
+    fractions["worldcover_valid_fraction"] = valid_fraction
+    fractions["feature_stage"] = "worldcover_candidate"
+    fractions["is_final_scorable"] = False
+    fraction_path = _write_geoparquet(
+        fractions,
+        city_root / "worldcover_fractions.parquet",
+    )
+
+    water_limit = float(aoi_contract["exclude_water_fraction_above"])
+    buffer_m = int(aoi_contract["buffer_m"])
+    keep = candidate_node_mask(
+        distance_values,
+        water_values,
+        buffer_m=buffer_m,
+        exclude_water_fraction_above=water_limit,
+    )
+    candidate = fractions.loc[keep].copy().reset_index(drop=True)
+    candidate["aoi_stage"] = "worldcover_candidate"
+    candidate_path = _write_geoparquet(
+        candidate,
+        city_root / "candidate_urban_domain.parquet",
+    )
+
+    fraction_nodata = np.float32(-9999)
+    fraction_transform = from_origin(left, top, grid_resolution, grid_resolution)
+    fraction_raster = _write_raster(
+        city_root / "worldcover_fractions_200m.tif",
+        [
+            np.where(np.isfinite(built), built, fraction_nodata),
+            np.where(np.isfinite(water), water, fraction_nodata),
+            np.where(np.isfinite(vegetation), vegetation, fraction_nodata),
+            np.where(np.isfinite(cropland), cropland, fraction_nodata),
+            distance_to_water,
+        ],
+        crs=aoi.crs,
+        transform=fraction_transform,
+        dtype="float32",
+        nodata=float(fraction_nodata),
+        descriptions=(
+            "built_up_fraction",
+            "water_fraction",
+            "vegetation_fraction",
+            "cropland_fraction",
+            "distance_to_WorldCover_waterbody",
+        ),
+    )
+    domain_raster = np.full(built.shape, 255, dtype=np.uint8)
+    domain_raster[rows, columns] = 0
+    domain_raster[rows[keep], columns[keep]] = 1
+    domain_raster_path = _write_raster(
+        city_root / "candidate_urban_domain.tif",
+        [domain_raster],
+        crs=aoi.crs,
+        transform=fraction_transform,
+        dtype="uint8",
+        nodata=255,
+        descriptions=("worldcover_candidate_domain",),
+    )
+
+    covered = np.isfinite(distance_values) & (distance_values <= buffer_m)
+    finite_water = np.isfinite(water_values)
+    output_paths = [
+        class_path,
+        fraction_path,
+        fraction_raster,
+        candidate_path,
+        domain_raster_path,
+    ]
+    reference_year = int(protocol.sources["worldcover_2021_v200"]["year"])
+    event_year = int(str(protocol.cities[city_id]["event_window"]["local_start"])[:4])
+    return {
+        "city_id": city_id,
+        "reference_year": reference_year,
+        "event_year": event_year,
+        "event_year_minus_reference_year": event_year - reference_year,
+        "crs": aoi.crs.to_string(),
+        "tile_ids": [tile_id],
+        "context_buffer_m": context_buffer,
+        "context_bounds_m": list(bounds),
+        "categorical_grid": {"resolution_m": 10, "shape": class_shape},
+        "class_counts": {
+            str(int(value)): int(count)
+            for value, count in zip(class_values, class_counts, strict=True)
+        },
+        "built_components": {
+            "all": component_count,
+            "retained": retained_count,
+            "minimum_km2": float(aoi_contract["minimum_component_km2"]),
+        },
+        "buffered_built_grid_area_km2": float(np.count_nonzero(covered) * 0.04),
+        "administrative_candidate_nodes": len(grid),
+        "candidate_urban_nodes": len(candidate),
+        "outside_buffered_built_domain": int(np.count_nonzero(~covered)),
+        "excluded_water_above_threshold": int(
+            np.count_nonzero(covered & finite_water & (water_values > water_limit))
+        ),
+        "excluded_missing_worldcover": int(np.count_nonzero(covered & ~finite_water)),
+        "worldcover_valid_fraction": {
+            "minimum": float(valid_fraction.min()),
+            "mean": float(valid_fraction.mean()),
+            "maximum": float(valid_fraction.max()),
+        },
+        "built_up_fraction_range": [
+            float(np.nanmin(built_values)),
+            float(np.nanmax(built_values)),
+        ],
+        "water_fraction_range": [
+            float(np.nanmin(water_values)),
+            float(np.nanmax(water_values)),
+        ],
+        "vegetation_fraction_range": [
+            float(np.nanmin(vegetation_values)),
+            float(np.nanmax(vegetation_values)),
+        ],
+        "cropland_fraction_range": [
+            float(np.nanmin(cropland_values)),
+            float(np.nanmax(cropland_values)),
+        ],
+        "distance_to_WorldCover_waterbody_range_m": [
+            float(np.nanmin(water_distance_values)),
+            float(np.nanmax(water_distance_values)),
+        ],
+        "outputs": [_file_record(root, path) for path in output_paths],
+    }
+
+
+def prepare_worldcover(root: Path, session: requests.Session) -> dict[str, object]:
+    """Download and prepare WorldCover evidence for the two candidate city domains."""
+    protocol = load_protocol(root / "configs")
+    raw_root = root / "data" / "raw"
+    city_ids = ("zhengzhou", "beijing")
+    aois = {
+        city_id: gpd.read_parquet(root / "data" / "interim" / city_id / "admin_aoi.parquet")
+        for city_id in city_ids
+    }
+    index_path = raw_root / "worldcover_2021_v200" / "v200" / "esa_worldcover_grid.fgb"
+    tile_index = gpd.read_file(index_path)
+    selections = select_worldcover_tiles(
+        tile_index,
+        aois,
+        context_buffer_m=int(protocol.protocol["terrain"]["context_buffer_m"]),
+    )
+    if any(len(tile_ids) != 1 for tile_ids in selections.values()):
+        raise ValueError("Phase 1 WorldCover processing expects one tile per city context")
+    tile_ids = tuple(sorted({tile_id for values in selections.values() for tile_id in values}))
+    source = protocol.sources["worldcover_2021_v200"]
+    heads = {tile_id: _head_tile(session, _tile_url(source, tile_id)) for tile_id in tile_ids}
+    ensure_free_space(raw_root, sum(int(heads[tile_id]["bytes"]) for tile_id in tile_ids))
+
+    records: dict[str, SourceRecord] = {}
+    receipt_paths: dict[str, Path] = {}
+    for tile_id in tile_ids:
+        record, receipt_path = _download_tile(
+            session,
+            raw_root,
+            protocol,
+            tile_id,
+            heads[tile_id],
+        )
+        records[tile_id] = record
+        receipt_paths[tile_id] = receipt_path
+    manifest = write_worldcover_manifest(
+        list(records.values()),
+        root / "artifacts" / "manifests" / "worldcover_tile_manifest.parquet",
+    )
+
+    city_reports: list[dict[str, object]] = []
+    for city_id in city_ids:
+        tile_id = selections[city_id][0]
+        tile_path = raw_root / records[tile_id].relative_path
+        city_reports.append(_process_city_worldcover(root, city_id, tile_id, tile_path, protocol))
+    tile_report = []
+    for tile_id in tile_ids:
+        record = records[tile_id]
+        tile_report.append(
+            {
+                "tile_id": tile_id,
+                "selected_for": [city_id for city_id in city_ids if tile_id in selections[city_id]],
+                "url": _tile_url(source, tile_id),
+                "bytes": record.bytes,
+                "sha256": record.sha256,
+                "etag": heads[tile_id]["etag"],
+                "last_modified": heads[tile_id]["last_modified"],
+                "path": f"data/raw/{record.relative_path}",
+                "source_receipt": _relative(root, receipt_paths[tile_id]),
+                "source_receipt_sha256": sha256_file(receipt_paths[tile_id]),
+            }
+        )
+    report_payload = {
+        "schema_version": 1,
+        "source_id": "worldcover_2021_v200",
+        "version": source["version"],
+        "year": source["year"],
+        "license": source["license"],
+        "privacy_status": source["privacy_status"],
+        "manifest": _file_record(root, manifest),
+        "tiles": tile_report,
+        "processing": {
+            "categorical_resampling": "nearest",
+            "fraction_denominator": "valid 10 m pixels in each aligned 200 m cell",
+            "built_up_class": int(protocol.protocol["aoi"]["built_up_class"]),
+            "water_class": int(source["classes"]["permanent_water"]),
+            "vegetation_classes": [
+                int(source["classes"][name])
+                for name in (
+                    "tree_cover",
+                    "shrubland",
+                    "grassland",
+                    "herbaceous_wetland",
+                    "mangroves",
+                    "moss_and_lichen",
+                )
+            ],
+            "cropland_class": int(source["classes"]["cropland"]),
+            "waterbody_distance": {
+                "geometry": "nearest 10 m class-80 pixel boundary",
+                "search_domain": "administrative AOI plus 10 km",
+                "maximum_m": int(protocol.protocol["terrain"]["context_buffer_m"]),
+            },
+            "connectivity": int(protocol.protocol["aoi"]["connectivity"]),
+            "minimum_component_km2": float(protocol.protocol["aoi"]["minimum_component_km2"]),
+            "buffer_m": int(protocol.protocol["aoi"]["buffer_m"]),
+            "buffer_operator": "10 m Euclidean distance sampled at 200 m node centers",
+            "exclude_water_fraction_above": float(
+                protocol.protocol["aoi"]["exclude_water_fraction_above"]
+            ),
+        },
+        "aoi_stage": "worldcover_candidate",
+        "is_final_scorable": False,
+        "next_gate": [
+            "GLO-30 DSM valid coverage at least 80 percent",
+            "remap labels to the final scorable grid",
+        ],
+        "cities": city_reports,
+    }
+    report = root / "artifacts" / "reports" / "worldcover.json"
+    report.parent.mkdir(parents=True, exist_ok=True)
+    partial = report.with_name(f"{report.name}.part")
+    partial.write_bytes(canonical_json_bytes(report_payload))
+    os.replace(partial, report)
+    return {
+        "cities": {
+            city["city_id"]: {
+                "candidate_urban_nodes": city["candidate_urban_nodes"],
+                "tile_ids": city["tile_ids"],
+            }
+            for city in city_reports
+        },
+        "file_count": len(records),
+        "manifest": str(manifest),
+        "report": str(report),
+        "total_bytes": sum(record.bytes for record in records.values()),
+    }
+
+
+def assemble_feature_table(
+    final_grid: gpd.GeoDataFrame,
+    sources: Mapping[str, pd.DataFrame],
+    contract: Mapping[str, object],
+) -> gpd.GeoDataFrame:
+    """Rekey allowlisted feature columns onto geometry from the final grid."""
+    raw_specs = contract.get("features")
+    if not isinstance(raw_specs, list) or not all(isinstance(item, Mapping) for item in raw_specs):
+        raise ValueError("feature contract must contain a feature list")
+    specs = list(raw_specs)
+    names = [str(item.get("name")) for item in specs]
+    if names != EXPECTED_FEATURE_NAMES:
+        raise ValueError("feature contract does not match the frozen 18-column order")
+    if final_grid.crs is None or "grid_id" not in final_grid or "geometry" not in final_grid:
+        raise ValueError("final grid must provide grid_id, geometry, and CRS")
+    if final_grid["grid_id"].isna().any() or final_grid["grid_id"].duplicated().any():
+        raise ValueError("final grid_id values must be non-null and unique")
+
+    result = final_grid[["grid_id", "geometry"]].sort_values("grid_id", kind="stable")
+    result = result.reset_index(drop=True)
+    anchor_ids = result["grid_id"].tolist()
+    anchor_geometry = result.geometry.to_wkb().tolist()
+    source_files = tuple(dict.fromkeys(str(item.get("source_file")) for item in specs))
+    for source_file in source_files:
+        if source_file not in sources:
+            raise ValueError(f"missing feature source: {source_file}")
+        source = sources[source_file]
+        if "grid_id" not in source:
+            raise ValueError(f"{source_file} has no grid_id")
+        if source["grid_id"].isna().any() or source["grid_id"].duplicated().any():
+            raise ValueError(f"{source_file} has duplicate grid_id")
+        source_names = [
+            str(item["name"]) for item in specs if str(item["source_file"]) == source_file
+        ]
+        missing_columns = [name for name in source_names if name not in source]
+        if missing_columns:
+            raise ValueError(f"{source_file} misses feature columns: {missing_columns}")
+        missing_ids = set(anchor_ids).difference(source["grid_id"])
+        if missing_ids:
+            raise ValueError(f"{source_file} misses final grid_id")
+        result = result.merge(
+            source[["grid_id", *source_names]],
+            on="grid_id",
+            how="left",
+            sort=False,
+            validate="one_to_one",
+        )
+        if (
+            len(result) != len(anchor_ids)
+            or result["grid_id"].tolist() != anchor_ids
+            or result.geometry.to_wkb().tolist() != anchor_geometry
+        ):
+            raise ValueError(f"{source_file} changed the final grid anchor")
+
+    for item in specs:
+        name = str(item["name"])
+        dtype = str(item.get("dtype"))
+        if dtype not in {"float32", "float64"}:
+            raise ValueError(f"unsupported feature dtype for {name}: {dtype}")
+        result[name] = result[name].astype(dtype)
+    return gpd.GeoDataFrame(
+        result[["grid_id", *EXPECTED_FEATURE_NAMES, "geometry"]],
+        geometry="geometry",
+        crs=final_grid.crs,
+    )
+
+
+def _finite_range(values: pd.Series) -> list[float | None]:
+    finite = values[np.isfinite(values.to_numpy())]
+    if finite.empty:
+        return [None, None]
+    return [float(finite.min()), float(finite.max())]
+
+
+def _column_hash(values: pd.Series) -> str:
+    array = np.ascontiguousarray(values.to_numpy())
+    digest = hashlib.sha256(canonical_json_bytes({"dtype": array.dtype.str, "length": len(array)}))
+    digest.update(array.view(np.uint8))
+    return digest.hexdigest()
+
+
+def _raw_feature_sources(root: Path) -> pd.DataFrame:
+    paths = (
+        root / "artifacts" / "manifests" / "raw_source_manifest.parquet",
+        root / "artifacts" / "manifests" / "glo30_dsm_tile_manifest.parquet",
+    )
+    missing = [path for path in paths if not path.is_file()]
+    if missing:
+        raise FileNotFoundError(f"missing feature provenance manifest: {missing[0]}")
+    return pd.concat([pd.read_parquet(path) for path in paths], ignore_index=True)
+
+
+def _city_source_assets(root: Path) -> dict[tuple[str, str], set[str]]:
+    reports = root / "artifacts" / "reports"
+    worldcover = json.loads((reports / "worldcover.json").read_text("utf-8"))
+    worldpop = json.loads((reports / "worldpop.json").read_text("utf-8"))
+    dsm = json.loads((reports / "dsm_final_aoi.json").read_text("utf-8"))
+    selected: dict[tuple[str, str], set[str]] = {}
+    for item in worldcover["cities"]:
+        selected[(str(item["city_id"]), "worldcover_2021_v200")] = set(item["tile_ids"])
+    for item in worldpop["cities"]:
+        selected[(str(item["city_id"]), "worldpop_r2024b")] = {str(item["reference_year"])}
+    for item in dsm["cities"]:
+        selected[(str(item["city_id"]), "cop_dem_glo30_dged_2024_1")] = set(item["tile_ids"])
+    return selected
+
+
+def _one_source_value(rows: pd.DataFrame, column: str) -> str:
+    values = sorted(set(rows[column].dropna().astype(str)))
+    if len(values) != 1:
+        raise ValueError(f"feature source has ambiguous {column}: {values}")
+    return values[0]
+
+
+def _write_feature_source_manifest(
+    root: Path,
+    contract: Mapping[str, object],
+    cities: list[dict[str, object]],
+) -> Path:
+    raw = _raw_feature_sources(root)
+    assets = _city_source_assets(root)
+    products = contract.get("source_products")
+    specs = contract.get("features")
+    if not isinstance(products, Mapping) or not isinstance(specs, list):
+        raise TypeError("feature source-product metadata is missing")
+    records = []
+    for city in cities:
+        city_id = str(city["city_id"])
+        hashes = city["column_hashes"]
+        assert isinstance(hashes, dict)
+        for spec in specs:
+            assert isinstance(spec, Mapping)
+            source_id = str(spec["source_id"])
+            rows = raw.loc[raw["source_id"].eq(source_id)]
+            city_rows = rows.loc[rows["city_id"].eq(city_id)]
+            if not city_rows.empty:
+                rows = city_rows
+            elif (city_id, source_id) in assets:
+                rows = rows.loc[rows["asset_key"].astype(str).isin(assets[(city_id, source_id)])]
+            if rows.empty:
+                raise ValueError(f"feature source is not documented: {city_id}/{source_id}")
+            metadata = products.get(source_id)
+            if not isinstance(metadata, Mapping):
+                raise TypeError(f"feature source product is not frozen: {source_id}")
+            raw_files = [
+                [path, digest]
+                for path, digest in sorted(
+                    {
+                        (str(row.relative_path), str(row.sha256))
+                        for row in rows[["relative_path", "sha256"]].itertuples(index=False)
+                    }
+                )
+            ]
+            output_column = str(spec["output_column"])
+            records.append(
+                {
+                    "city_id": city_id,
+                    "source_product": str(metadata["source_product"]),
+                    "version_or_release": _one_source_value(rows, "version_or_release"),
+                    "source_url_or_doi": _one_source_value(rows, "source_url_or_doi"),
+                    "license": _one_source_value(rows, "license"),
+                    "retrieved_at": str(rows["retrieved_at"].astype(str).max()),
+                    "raw_file_sha256": sha256_bytes(canonical_json_bytes(raw_files)),
+                    "native_resolution": str(metadata["native_resolution"]),
+                    "reference_date_or_period": str(spec["temporal_rule"]),
+                    "event_relative_status": str(spec["temporal_rule"]),
+                    "aggregation_or_resampling_operator": (
+                        f"{spec['operator']}; {spec['resampling']}"
+                    ),
+                    "output_column": output_column,
+                    "output_hash": str(hashes[output_column]),
+                }
+            )
+    table = pa.Table.from_pydict(
+        {column: [str(row[column]) for row in records] for column in FEATURE_SOURCE_COLUMNS}
+    )
+    path = root / "artifacts" / "manifests" / "source_manifest.parquet"
+    path.parent.mkdir(parents=True, exist_ok=True)
+    partial = path.with_name(path.name + ".part")
+    pq.write_table(table, partial, compression="zstd", use_dictionary=False, version="2.6")
+    os.replace(partial, path)
+    return path
+
+
+def prepare_features(root: Path) -> dict[str, object]:
+    """Write the performance-blind 18-column GeoParquet contract for both cities."""
+    schema_path = root / "configs" / "feature_schema.yaml"
+    contract = yaml.safe_load(schema_path.read_text(encoding="utf-8"))
+    if not isinstance(contract, Mapping):
+        raise TypeError("feature_schema.yaml must contain a mapping")
+    raw_specs = contract.get("features")
+    if not isinstance(raw_specs, list) or not all(isinstance(item, Mapping) for item in raw_specs):
+        raise ValueError("feature_schema.yaml must contain a feature list")
+    source_files = tuple(dict.fromkeys(str(item.get("source_file")) for item in raw_specs))
+    expected_nodes = {"zhengzhou": 25_155, "beijing": 61_443}
+    cities = []
+    for city_id in ("zhengzhou", "beijing"):
+        city_root = root / "data" / "interim" / city_id
+        grid_path = city_root / "final_scorable_grid.parquet"
+        final_grid = gpd.read_parquet(grid_path)
+        if len(final_grid) != expected_nodes[city_id]:
+            raise ValueError(f"final scorable node baseline changed for {city_id}")
+        source_paths = {name: city_root / name for name in source_files}
+        source_tables = {name: pd.read_parquet(path) for name, path in source_paths.items()}
+        output = assemble_feature_table(final_grid, source_tables, contract)
+        output_path = _write_geoparquet(output, city_root / "features_18.parquet")
+        geometry_sha256 = sha256_bytes(b"".join(output.geometry.to_wkb()))
+        column_hashes = {name: _column_hash(output[name]) for name in EXPECTED_FEATURE_NAMES}
+        cities.append(
+            {
+                "city_id": city_id,
+                "crs": output.crs.to_string(),
+                "rows": len(output),
+                "geometry_sha256": geometry_sha256,
+                "column_hashes": column_hashes,
+                "feature_dtypes": {
+                    name: str(output[name].dtype) for name in EXPECTED_FEATURE_NAMES
+                },
+                "feature_missing": {
+                    name: int(output[name].isna().sum()) for name in EXPECTED_FEATURE_NAMES
+                },
+                "feature_ranges": {
+                    name: _finite_range(output[name]) for name in EXPECTED_FEATURE_NAMES
+                },
+                "inputs": [
+                    _file_record(root, path) for path in (grid_path, *source_paths.values())
+                ],
+                "output": _file_record(root, output_path),
+            }
+        )
+
+    manifest_path = _write_feature_source_manifest(root, contract, cities)
+
+    payload = {
+        "schema_version": 1,
+        "performance_blind": True,
+        "labels_read": False,
+        "feature_schema": _file_record(root, schema_path),
+        "feature_schema_canonical_sha256": sha256_bytes(canonical_json_bytes(contract)),
+        "feature_source_manifest": _file_record(root, manifest_path),
+        "feature_columns": EXPECTED_FEATURE_NAMES,
+        "output_columns": ["grid_id", *EXPECTED_FEATURE_NAMES, "geometry"],
+        "geometry_source": "final_scorable_grid.parquet",
+        "explicit_coordinate_columns_written": False,
+        "forbidden_columns_written": False,
+        "imputation_applied": False,
+        "cities": cities,
+    }
+    report = root / "artifacts" / "reports" / "features_18.json"
+    report.parent.mkdir(parents=True, exist_ok=True)
+    partial = report.with_name(f"{report.name}.part")
+    partial.write_bytes(canonical_json_bytes(payload))
+    os.replace(partial, report)
+    return {"cities": cities, "report": str(report)}

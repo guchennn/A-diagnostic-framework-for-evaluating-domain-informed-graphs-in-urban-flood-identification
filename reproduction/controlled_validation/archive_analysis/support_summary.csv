@@ -1,0 +1,13 @@
+beta,evaluation,metric,mean_pp,min_study_pp,max_study_pp,studies,positive_studies,negative_studies,availability
+0.5,1to10,background_rank,-2.387822289199467,-4.05343185707512,-0.6807858300826046,10,0.0,10.0,cached
+0.5,1to10,threshold_precision,0.3446185887218811,-0.11740573144495903,0.863016643348719,10,8.0,2.0,cached
+0.5,full,background_rank,-2.387822289199467,-4.05343185707512,-0.6807858300826046,10,0.0,10.0,cached
+0.5,full,threshold_precision,0.248341580897982,-0.03553524331591485,0.6823509122203746,10,8.0,2.0,cached
+1.0,1to10,background_rank,-8.261200666042791,-11.44469177904375,-4.887565081367585,10,0.0,10.0,cached
+1.0,1to10,threshold_precision,-0.6097942932783542,-1.3652068013257435,-0.23207156517432698,10,0.0,10.0,cached
+1.0,full,background_rank,-8.261200666042791,-11.44469177904375,-4.887565081367585,10,0.0,10.0,cached
+1.0,full,threshold_precision,-0.2155611315316956,-0.6716034132681387,0.011745592202956035,10,1.0,9.0,cached
+0.0,full,threshold_precision,,,,0,,,not cached
+0.0,full,background_rank,,,,0,,,not cached
+0.0,1to10,threshold_precision,,,,0,,,not cached
+0.0,1to10,background_rank,,,,0,,,not cached

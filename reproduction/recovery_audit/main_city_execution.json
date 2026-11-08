@@ -1,0 +1,48 @@
+{
+  "artifact_run": "artifacts/remote_runs/reviewer-revision-v1-0d119f16fcb9",
+  "status": "success",
+  "completed_units": 50,
+  "counts": {
+    "inner": {
+      "failed": 0,
+      "success": 1250
+    },
+    "outer": {
+      "failed": 0,
+      "success": 1550
+    }
+  },
+  "expected": {
+    "inner": 1250,
+    "outer": 1550
+  },
+  "original_environment": {
+    "cuda_runtime": "12.8",
+    "gpu": "NVIDIA GeForce RTX 4060 Laptop GPU",
+    "gpu_memory_bytes": 8585216000,
+    "python": "3.12.11",
+    "versions": {
+      "lightgbm": "4.7.0",
+      "scikit-learn": "1.9.0",
+      "torch": "2.8.0+cu128",
+      "torch-geometric": "2.7.0",
+      "xgboost": "3.4.0"
+    }
+  },
+  "executed_source_sha256": "0d119f16fcb9c194452461730b7df6f4c9ad74c8ae1e83a5958d2a017f9b6094",
+  "source_metadata": [
+    {
+      "path": "artifacts/remote_runs/reviewer-revision-v1-0d119f16fcb9/batch_summary.json",
+      "sha256": "5fca7827cd3bd0bbc38ff47b76a78de3d7cb77be62551e276f9302a36e789fea"
+    },
+    {
+      "path": "artifacts/remote_runs/reviewer-revision-v1-0d119f16fcb9/local_environment_lock.json",
+      "sha256": "0d3b35b5b5ea733d521a2d3a3da5c80afae5762b5cd88a79370e75ba8942dd05"
+    },
+    {
+      "path": "artifacts/remote_runs/reviewer-revision-v1-0d119f16fcb9/plan.json",
+      "sha256": "ad61b99451770b2fb1410a2be9c47119024c569fd32e7ac9a349920dbd9a9e13"
+    }
+  ],
+  "fresh_public_source_refit_replay_verified": false
+}

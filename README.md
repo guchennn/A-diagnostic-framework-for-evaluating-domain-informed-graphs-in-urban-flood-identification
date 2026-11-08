@@ -1,16 +1,42 @@
-# A diagnostic framework for evaluating domain-informed graphs in urban flood identification
+# Diagnosing the incremental value of domain-informed graphs for urban flood-report ranking: A multi-dimensional evaluation framework
 
 Experiment code and numerical data for the Zhengzhou (2021) and Beijing (2023)
 case studies, covering matched graph comparisons, attribute ablation, structural
-decomposition, seed sensitivity and synthetic validation.
+decomposition, seed sensitivity and synthetic validation. The multi-dimensional
+evaluation framework also examines local increments against both own attributes
+and adjacency, and audits structural-group migration after spatial isolation.
 
 [![Four-dimensional diagnostic framework](assets/framework.png)](assets/framework.png)
 
-*Matched comparisons, information conditions, structural diagnosis and evaluation
-stability. Click the figure to view it at full resolution.*
+*Reference comparison, condition dependence, structural localization and evaluation
+sensitivity. This is the framework used in the revised manuscript (Figure 2).
+[Full-resolution image](assets/framework.png) · [Editable PowerPoint](assets/framework.pptx).*
 
-<sub>Imagery © Esri, Vantor, Earthstar Geographics and the GIS User Community.
-Terrain from Copernicus DEM. Land cover from ESA WorldCover.</sub>
+## Latest diagnostic analyses
+
+The November 2026 additions include executable code, aggregate results and
+input/source hashes:
+
+| Analysis | Entry point |
+| --- | --- |
+| Data alignment, six terrain attributes and graph construction | [Operation specification](reproduction/final_audit/Operational_specification.md) and [18-attribute ledger](reproduction/final_audit/feature_operations.csv) |
+| Local increments against own attributes and adjacency | [Paired estimates](reproduction/final_audit/local_references/summary.csv) and [reproduction guide](reproduction/final_audit/README.md) |
+| Full eligible-city to held-out graph-group migration | [Transition counts](reproduction/final_audit/group_migration/transition_matrix.csv) and [group-definition sensitivity](reproduction/final_audit/local_references/group_definition_sensitivity.csv) |
+| Controlled ranking experiments and archived synthetic graph analyses | [Code, results and Figure 8](reproduction/controlled_validation/README.md) |
+| Recovered FULL-budget records and city replay coverage | [Record audit](reproduction/recovery_audit/README.md) |
+
+Verify the supplied final-audit aggregates with standard Python, without original
+city observations or third-party packages:
+
+```sh
+python -I -S reproduction/final_audit/scripts/verify_aggregates.py
+```
+
+The supplied tables contain group, fold, fit or simulated-dataset summaries.
+Cell-level city records and predictions remain local. Recomputing city diagnostics
+requires the prepared graphs and a compatible frozen prediction run; the guides
+distinguish that replay from checking the published aggregates. All commands below
+run from the repository root and use relative paths.
 
 ## Install
 
@@ -42,8 +68,8 @@ python -m pip install -r requirements.txt
 
 ## Run with the included data
 
-These CPU commands recompute Tables 2 and 3, check the seed statistics underlying
-Table 4, and run the ten-replicate synthetic experiment.
+These CPU commands recompute the performance and ablation tables, check seed
+sensitivity, and run the ten-replicate synthetic experiment.
 
 ```sh
 python scripts/reproduce_tables.py
@@ -131,14 +157,18 @@ OSM/building data.
 | `scripts/` | Evaluation and numerical reproduction |
 | `results/` | Aggregate results, recorded selections and seeds |
 | `tests/` | Numerical and workflow tests |
+| `reproduction/` | Final operational audits, controlled validation, aggregate evidence and provenance |
 
 ```sh
 python -m pytest -q --basetemp .pytest_tmp
 ```
 
-The original FULL-budget ablation is available as aggregates. Exact training replay
-requires its missing refit-epoch and optimizer-seed records. The running guide
-describes the supported budget-100 experiments. [Ablation scope](REPRODUCE.md#ablation).
+The recovered FULL-budget fit/bank aggregates reproduce all 60 published fold-level
+means. Exact training replay still requires 15 missing epoch selections and verified
+integer-seed provenance for 135 neural fits. Original main-city execution and frozen
+prediction reanalysis are documented separately from fresh public-code refit replay.
+[Recovered records](reproduction/recovery_audit/README.md) ·
+[Supported ablation scope](REPRODUCE.md#ablation).
 
 ## Citation and licence
 

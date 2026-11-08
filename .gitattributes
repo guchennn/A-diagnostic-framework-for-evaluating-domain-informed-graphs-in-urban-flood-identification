@@ -3,3 +3,7 @@
 *.png -text
 *.pptx -text
 results/ablation/inference.csv -text whitespace=cr-at-eol
+# Preserve the exact bytes checked by the reproduction manifests on every platform.
+reproduction/** -text whitespace=cr-at-eol
+# Matplotlib's archived SVG is a generated figure whose original hash is retained.
+reproduction/controlled_validation/figure8/*.svg -diff

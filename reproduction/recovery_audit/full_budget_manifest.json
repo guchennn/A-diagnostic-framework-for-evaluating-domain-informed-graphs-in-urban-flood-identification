@@ -1,0 +1,106 @@
+{
+  "status": "success",
+  "protocol_id": "FloodGNN-CEUS-ZZ-BJ-v1.0",
+  "city": "zhengzhou",
+  "budget": "FULL",
+  "trajectory": "NA",
+  "regimes": {
+    "full": [
+      "elevation_mean",
+      "slope_mean",
+      "relative_elevation_1km",
+      "local_relief_1km",
+      "log_flow_accumulation",
+      "twi",
+      "event_rainfall_total",
+      "max_6h_rainfall",
+      "antecedent_72h_rainfall",
+      "built_up_fraction",
+      "water_fraction",
+      "vegetation_fraction",
+      "cropland_fraction",
+      "road_length_density",
+      "waterway_length_density",
+      "distance_to_nearest_waterway",
+      "distance_to_WorldCover_waterbody",
+      "log1p_population_density"
+    ],
+    "noD8": [
+      "elevation_mean",
+      "slope_mean",
+      "relative_elevation_1km",
+      "local_relief_1km",
+      "event_rainfall_total",
+      "max_6h_rainfall",
+      "antecedent_72h_rainfall",
+      "built_up_fraction",
+      "water_fraction",
+      "vegetation_fraction",
+      "cropland_fraction",
+      "road_length_density",
+      "waterway_length_density",
+      "distance_to_nearest_waterway",
+      "distance_to_WorldCover_waterbody",
+      "log1p_population_density"
+    ],
+    "noNeigh": [
+      "elevation_mean",
+      "slope_mean",
+      "event_rainfall_total",
+      "max_6h_rainfall",
+      "antecedent_72h_rainfall",
+      "built_up_fraction",
+      "water_fraction",
+      "vegetation_fraction",
+      "cropland_fraction",
+      "road_length_density",
+      "waterway_length_density",
+      "distance_to_nearest_waterway",
+      "distance_to_WorldCover_waterbody",
+      "log1p_population_density"
+    ]
+  },
+  "outer_methods": [
+    {
+      "label": "XGB",
+      "family": "XGBoost",
+      "graph_id": "NA"
+    },
+    {
+      "label": "G0",
+      "family": "GraphSAGE-G2",
+      "graph_id": "G0"
+    },
+    {
+      "label": "G1",
+      "family": "GraphSAGE-G2",
+      "graph_id": "G1"
+    },
+    {
+      "label": "G2",
+      "family": "GraphSAGE-G2",
+      "graph_id": "G2"
+    }
+  ],
+  "inner_selection": "best mean inner PB-AUPRC per family, tie-break SMALL<MEDIUM, per outer fold",
+  "outer_folds": [
+    0,
+    1,
+    2,
+    3,
+    4
+  ],
+  "neural_seed_slots": [
+    "NEURAL-1",
+    "NEURAL-2",
+    "NEURAL-3"
+  ],
+  "replicates": 10000,
+  "outputs": [
+    "inner_selection.csv",
+    "cell_metrics.csv",
+    "fold_level.csv",
+    "summary.csv",
+    "inference.csv"
+  ]
+}

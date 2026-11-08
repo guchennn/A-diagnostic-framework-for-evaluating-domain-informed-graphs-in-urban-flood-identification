@@ -1,0 +1,41 @@
+{
+  "python": "3.12.11",
+  "scope": "frozen outer test; no inner-CV or rerouting",
+  "replication": "each eligible cell appears in one outer test fold; pooled counts are cell weighted",
+  "checks": [
+    "acyclic full graphs",
+    "outdegree at most one",
+    "frozen pruning identity",
+    "test partition exact coverage",
+    "no upward group transitions",
+    "legacy heldout group identity",
+    "manuscript positive counts"
+  ],
+  "inputs": {
+    "artifacts/protocol_lock.json": "eb9187dd9efcc1beeb8e3e9c47ccbc2238936797d99abc7e73b4a97b8d25ec9d",
+    "artifacts/runtime/supp-mechanism-ab-20261007-r4/test_node_structure.parquet": "654b52e4aadd2b3be10273315d5906e1c781c6ab13cbbcf385ff78becb6d0055",
+    "configs/graph_config.yaml": "c275508bd82dc7a966c3ca8b77047bd0709ed9b0c908091e66ebf2761470fc5e",
+    "configs/protocol.yaml": "024ca881045a833b08ed64cf2a8f2051b8d4aadfb66f64f478908e3a7be68aa6",
+    "data/interim/beijing/evaluation_design/outer_partitions.parquet": "53d3366890f269be275472b842afac56426aef45dd7d79399ee639a81378953b",
+    "data/interim/beijing/final_label_ledger.parquet": "f4f2590ebec15e6fa919f81fd49794a8a5a70058e1f14b87e8da42aec6dc821a",
+    "data/interim/beijing/final_scorable_grid.parquet": "f300746ab1a6285d8395b061d38c6d8d4fd070520c1a98e8ebb58ff651d23bfb",
+    "data/interim/beijing/graphs/base_edges.parquet": "1c584590d91a8dbca2b06137689ca0c4a7f8c5021f9098648dc6231647d6ff8f",
+    "data/interim/beijing/graphs/outer_edges.parquet": "69088d35361366c533185ff6741b86eef86e927dfc2cd3932678c80d15de5043",
+    "data/interim/zhengzhou/evaluation_design/outer_partitions.parquet": "056f861e6f203917189ec2402da1093d53339282464bb136b0f49ec7eca7c7c3",
+    "data/interim/zhengzhou/final_label_ledger.parquet": "2c07743fa514a160c445094cc00a7c39a3d629b9dc80ae8e59ff409ad509b9b0",
+    "data/interim/zhengzhou/final_scorable_grid.parquet": "506e9829bae8752b31373f3ea00a979837eefcc07e659c517f873fe27abf9cca",
+    "data/interim/zhengzhou/graphs/base_edges.parquet": "87d894c3dd91ce15bb8d83bee7517e87c6688e53317b415eb8c0c141c0f6c848",
+    "data/interim/zhengzhou/graphs/outer_edges.parquet": "4da76d45ea97b6ea74553fc983c0c72974cd14b776eaf67fffc7ebd387573999",
+    "outputs/final_operational_audit_20261108/group_migration/audit_migration.py": "725dbe4d5d82ca4060d0e614ecaf77daed25e486e829bcfe43821e0b9d44e902",
+    "src/floodgnn_ceus/evaluation_design.py": "f9ff4956d22a0fadfe39446f4b8651424d4f742b96e6c1c30aaeafa7d3c0d093",
+    "src/floodgnn_ceus/graph_support_audit.py": "533471abc4525ade3bd9f9a54501938bf428a7666752e15eff9980a70a489d3f",
+    "src/floodgnn_ceus/graphs.py": "d9498e210e365839c10f1f978179dd700a9749dc32d22942793d5d7134ba29b5",
+    "src/floodgnn_ceus/supplementary_mechanisms.py": "9e9edb1d962564719ede1226a2abec4c9e1fc316334955cb49946690a51afc99",
+    "uv.lock": "db1978ae35edbd5a070fcd2b7790169da58e4529389a9214b24afdfd4a825772"
+  },
+  "outputs": {
+    "transition_matrix.csv": "9d2fa6f9c60b8305e4bad1560752754eabe0f139d2b8add5de60ec8a916d5913",
+    "migration_summary.csv": "d3d1eb343e5594c1382c5934339edcba1bb29f0da0f511ef111b3f1701dd600a",
+    "edge_retention.csv": "f95d67aaf67e57be3af235a0c427f64461b14bdabdf6676c91cded9dfa862659"
+  }
+}

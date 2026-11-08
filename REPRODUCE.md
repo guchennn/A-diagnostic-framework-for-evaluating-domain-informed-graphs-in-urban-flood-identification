@@ -27,6 +27,35 @@ AP and recall use the 0–1 scale. Fields ending in `_pp` use percentage points.
 City means average the five spatial folds equally. The seed check recomputes paired
 effects and 10,000 randomized references from fit/group aggregates.
 
+## Final manuscript diagnostics
+
+The final revision adds paired local increments against both own attributes and
+adjacency, full-to-held-out structural-group migration, and controlled ranking
+validation. Start with the supplied evidence:
+
+```sh
+python -I -S reproduction/final_audit/scripts/verify_aggregates.py
+python reproduction/controlled_validation/controlled_ranking/test_validation.py
+```
+
+The first command checks hashes, paired-reference identities, AP additivity,
+fold averaging and migration counts without third-party dependencies. The second
+tests the controlled ranking metrics using the pinned numerical environment.
+
+Detailed commands and required inputs are in the
+[final-audit guide](reproduction/final_audit/README.md) and
+[controlled-validation guide](reproduction/controlled_validation/README.md).
+The [operation specification](reproduction/final_audit/Operational_specification.md)
+connects source data to terrain attributes, eligible-city graphs and partition
+graphs. The [18-attribute ledger](reproduction/final_audit/feature_operations.csv)
+records units, coverage, temporal and missing-data rules. Exact historical training
+provenance is retained separately from publication-code hashes.
+
+Regenerating full city analyses requires the local input artifacts named in each
+guide. Checking aggregate evidence does not reconstruct private predictions.
+Use the relative paths shown in the commands; no machine-specific project location
+is required.
+
 ## Prepare the data
 
 Obtain provider access using the data guide, then run each stage.
@@ -47,6 +76,15 @@ floodgnn lock-protocol
 Both cities are prepared together. `design` builds terrain variables, features,
 spatial partitions and graphs from the completed DSM stage. `lock-protocol`
 records the prepared inputs. Use a fresh checkout for a separate preparation.
+
+When DSM and final-grid products already exist, use only the cumulative post-DSM
+targets in a separate working copy, preserving the existing protocol lock:
+
+```sh
+floodgnn prepare --city all --through terrain
+floodgnn prepare --city all --through features
+floodgnn prepare --city all --through design
+```
 
 ## Train locally
 
@@ -113,8 +151,21 @@ python scripts/reproduce_ablation.py run --budget 100 --output reproduced/ablati
 ```
 
 Own-attribute and adjacency fits inherit the D8-selected configuration and epochs.
-Historical FULL-budget results are supplied as aggregates. Their refit epochs and
-optimizer seeds are incomplete, so exact FULL training replay is unavailable.
-The budget-100 interaction analysis uses the recorded FULL constants. The original
-ablation used Python 3.13.5/CUDA 12.9, while this workflow uses Python 3.12/CUDA 12.8.
-Fresh numerical replay of the city fits remains unverified.
+Recovered FULL-budget records include 450 fit/bank AP summaries and the selected
+configurations. They reproduce all 60 published fold/model/attribute means exactly:
+
+```sh
+python -I -S reproduction/recovery_audit/verify_records.py
+```
+
+Fifteen neural selection units still lack saved best-inner/refit epochs, and verified
+integer-seed provenance is absent for 135 neural fits. Exact FULL training replay
+remains unavailable; `NEURAL-1/2/3` slot labels do not fill the missing seed records.
+The budget-100 interaction analysis uses the recorded FULL constants.
+
+The original ablation used Python 3.13.5/CUDA 12.9. The main city run instead already
+used Python 3.12.11, PyTorch 2.8.0+cu128 and PyG 2.7.0, with all 1,250 inner and 1,550
+outer tasks completed. Frozen-prediction metric reanalysis and graph-migration replay
+have numerical checks; fresh fitting with the reorganized public source has not yet
+been numerically matched to the historical city fits. These are distinct verification
+levels. [Search scope, recovered metadata and remaining gaps](reproduction/recovery_audit/README.md).

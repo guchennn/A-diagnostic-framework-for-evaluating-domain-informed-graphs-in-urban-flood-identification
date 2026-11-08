@@ -1,0 +1,34 @@
+schema_version: 1
+seed_protocol_id: FloodGNN-CEUS-ZZ-BJ-v1.0
+spatial:
+  block_cells: 20
+  block_size_m: 4000
+  outer_folds: 5
+  inner_folds: 3
+  buffer_m: 1000
+  buffer_predicate: polygon_distance_m < buffer_m
+  loss_node_weight: 0.2
+  loss_comparison_tolerance: 1.0e-12
+reveals:
+  STRICT-LOC:
+    budgets: [20, 50, 100, 200, FULL]
+    trajectory_ids: ["1", "2", "3", "4", "5"]
+    full_trajectory_id: NA
+  ALL-LOC:
+    analysis: E3a
+    budgets: [100]
+    trajectory_ids: ["1", "2", "3"]
+unlabeled_sample_size: 2000
+banks:
+  count: 3
+  positive_background_ratio: 10
+rng:
+  bit_generator: PCG64DXSM
+  candidate_order: grid_id asc
+  seed_digest: SHA-256 first 16 bytes unsigned big-endian
+seed_namespaces:
+  uniform_reveal: "{protocol_id}/{city}/{outer_fold}/uniform/{trajectory_id}"
+  outer_u: "{protocol_id}/{city}/{outer_fold}/{trajectory_id}/U"
+  inner_u: "{protocol_id}/{city}/{outer_fold}/{budget}/{trajectory_id}/{inner_fold}/U"
+  inner_bank: "{protocol_id}/{city}/{outer_fold}/{budget}/{trajectory_id}/{inner_fold}/bank/{bank_id}"
+  outer_bank: "{protocol_id}/{city}/{label_layer}/{outer_fold}/outer/bank/{bank_id}"

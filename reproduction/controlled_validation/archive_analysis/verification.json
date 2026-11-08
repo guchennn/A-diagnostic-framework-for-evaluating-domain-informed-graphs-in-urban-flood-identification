@@ -1,0 +1,11 @@
+{
+  "toy_cases": 3,
+  "weight_cases": 9,
+  "max_weighted_ap_error": 1.1102230246251565e-16,
+  "archived_ap_max_error_pp": 9.992007221626409e-15,
+  "max_additivity_residual_pp": 1.7763568394002505e-15,
+  "max_reference_identity_residual_pp": 8.881784197001252e-16,
+  "cache_grids": 150,
+  "rank_change_across_weights_max_error_pp": 0.0,
+  "paired_fits_per_model_per_grid": 15
+}

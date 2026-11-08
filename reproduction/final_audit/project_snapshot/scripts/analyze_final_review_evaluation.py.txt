@@ -1,0 +1,523 @@
+"""Audit evaluation mixtures and matched support groups from verified, fixed predictions."""
+
+from __future__ import annotations
+
+import argparse
+import json
+from itertools import product
+from pathlib import Path
+
+import numpy as np
+import pandas as pd
+from analyze_reviewer_revision import describe_folds, paired_wide
+from analyze_reviewer_training_structure import structure_inputs
+from summarize_reviewer_training import (
+    CONTRASTS,
+    DETERMINISTIC,
+    METRICS,
+    SEEDS,
+    UNIT,
+    VARIANTS,
+    check_identity,
+    logical_run_path,
+    metrics_and_signature,
+    require,
+    validate_selections,
+    validated_seed_frames,
+    verify_provenance,
+)
+
+from floodgnn_ceus.io import sha256_file
+
+ALL_METRICS = (*METRICS, "full_background_pb_auc", "full_weighted_1to10_ap", "sampled_pb_auc")
+STRUCTURE_CONTRASTS = (
+    ("FF-G2-1", "FF-G0-1"),
+    ("FF-G2-1", "FF-G1-1"),
+    ("SAGE-G2-2", "SAGE-G0-2"),
+    ("FF-G2-1", "SAGE-G2-2"),
+)
+STRUCTURE_VARIANTS = {v for pair in STRUCTURE_CONTRASTS for v in pair}
+CONDITIONS = ("sampled_1to10", "full_domain", "full_weighted_1to10")
+GROUPS = ("Z0", "Zcut", "Zplus")
+STRUCTURE_METRICS = (
+    "ap_contribution",
+    "candidate_midrank_gain",
+    "background_mean_gain",
+    "background_median_gain",
+    "background_improved_fraction",
+    "background_unchanged_fraction",
+)
+
+
+def positive_statistics(
+    labels: np.ndarray, scores: np.ndarray, background_weight: float = 1.0
+) -> np.ndarray:
+    """Positive threshold AP terms, unweighted candidate midpoint and background midrank."""
+    y, s = np.asarray(labels), np.asarray(scores, dtype=float)
+    require(y.ndim == 1 and y.shape == s.shape, "aligned one-dimensional labels/scores required")
+    require(set(np.unique(y)) == {0, 1}, "both binary classes required")
+    require(np.isfinite(s).all(), "finite scores required")
+    require(np.isfinite(background_weight) and background_weight > 0, "positive weight required")
+    positive, background = s[y == 1], np.sort(s[y == 0])
+    ordered, positive_ordered = np.sort(s), np.sort(positive)
+    tp = len(positive) - np.searchsorted(positive_ordered, positive, side="left")
+    fp = len(background) - np.searchsorted(background, positive, side="left")
+    contribution = tp / (tp + background_weight * fp) / len(positive)
+    midpoint = (
+        np.searchsorted(ordered, positive, side="left")
+        + np.searchsorted(ordered, positive, side="right")
+    ) / (2 * len(ordered))
+    background_rank = (
+        np.searchsorted(background, positive, side="left")
+        + np.searchsorted(background, positive, side="right")
+    ) / (2 * len(background))
+    return np.column_stack([contribution, midpoint, background_rank])
+
+
+def evaluate_rows(rows: pd.DataFrame, positive: frozenset) -> tuple[dict, dict]:
+    """All diagnostics have the same sorted positive order; sampled banks are averaged first."""
+    full = rows.loc[rows.bank_id.eq("NA")].sort_values("grid_id")
+    y = full.grid_id.isin(positive).to_numpy(np.int8)
+    m, u = int(y.sum()), int((y == 0).sum())
+    natural = positive_statistics(y, full.score.to_numpy())
+    weighted = positive_statistics(y, full.score.to_numpy(), 10 * m / u)
+    sampled = []
+    for bank in ("1", "2", "3"):
+        part = rows.loc[rows.bank_id.eq(bank)].sort_values("grid_id")
+        sampled.append(
+            positive_statistics(part.sample_role.eq("positive").to_numpy(np.int8), part.score)
+        )
+    sample = np.mean(sampled, axis=0)
+    return (
+        {
+            "full_background_pb_auc": float(natural[:, 2].mean()),
+            "full_weighted_1to10_ap": float(weighted[:, 0].sum()),
+            "sampled_pb_auc": float(sample[:, 2].mean()),
+            "background_weight_1to10": 10 * m / u,
+        },
+        dict(zip(CONDITIONS, (sample, natural, weighted), strict=True)),
+    )
+
+
+def summarize_structure(folds: pd.DataFrame) -> tuple[pd.DataFrame, pd.DataFrame]:
+    """AP retains zero groups; rank means require all folds, intervals five positives per fold."""
+    keys = ["city", "condition", "contrast", "group", "metric"]
+    draws = np.random.default_rng(20261011).integers(0, 5, (10000, 5))
+    summaries, lofo = [], []
+    for key, part in folds.groupby(keys, sort=True):
+        part = part.sort_values("outer_fold")
+        require(part.outer_fold.tolist() == list(range(5)), "exactly five folds required")
+        meta = dict(zip(keys, key, strict=True))
+        values = part.value.to_numpy(float)
+        valid = bool(np.isfinite(values).all())
+        interval = valid and (key[-1] == "ap_contribution" or part.positive_cells.ge(5).all())
+        q = np.quantile(values[draws].mean(axis=1), [0.025, 0.975]) if interval else [np.nan] * 2
+        summaries.append(
+            {
+                **meta,
+                "mean": values.mean() if valid else np.nan,
+                "resampling_q025": q[0],
+                "resampling_q975": q[1],
+                "status": "missing_fold" if not valid else "complete" if interval else "sparse",
+                "n_folds": 5,
+                "nonempty_folds": int(part.positive_cells.gt(0).sum()),
+                "minimum_positive_cells_per_fold": int(part.positive_cells.min()),
+                "positive_folds": int((values > 0).sum()),
+                "negative_folds": int((values < 0).sum()),
+            }
+        )
+        for omitted in range(5):
+            lofo.append(
+                {
+                    **meta,
+                    "omitted_fold": omitted,
+                    "mean": np.delete(values, omitted).mean() if valid else np.nan,
+                }
+            )
+    return pd.DataFrame(summaries), pd.DataFrame(lofo)
+
+
+def structure_tables(diagnostics: dict, memberships: dict) -> tuple[pd.DataFrame, pd.DataFrame]:
+    """Average each positive's paired change within folds before median/fraction summaries."""
+    collected, measurements = {}, []
+    for key, variants in sorted(diagnostics.items()):
+        city, fold, trajectory, seed = key
+        require(set(variants) == STRUCTURE_VARIANTS, "missing paired structural variant")
+        groups = memberships[city, fold]
+        for a, b in STRUCTURE_CONTRASTS:
+            for condition in CONDITIONS:
+                difference = variants[a][condition] - variants[b][condition]
+                require(len(difference) == len(groups), "unpaired structural positives")
+                contrast = f"{a} - {b}"
+                collected.setdefault((city, fold, condition, contrast), []).append(difference)
+                contributions = []
+                for group in GROUPS:
+                    mask = groups == group
+                    contribution = float(difference[mask, 0].sum())
+                    contributions.append(contribution)
+                    measurements.append(
+                        {
+                            "city": city,
+                            "outer_fold": fold,
+                            "trajectory": trajectory,
+                            "seed": seed,
+                            "condition": condition,
+                            "contrast": contrast,
+                            "group": group,
+                            "positive_cells": int(mask.sum()),
+                            "ap_contribution": contribution,
+                        }
+                    )
+                require(
+                    np.isclose(sum(contributions), difference[:, 0].sum(), atol=1e-12, rtol=0),
+                    "group contributions must sum exactly to AP difference",
+                )
+    folds = []
+    for (city, fold, condition, contrast), repeats in sorted(collected.items()):
+        require(len(repeats) == 15, "five trajectories times three paired seed slots required")
+        differences = np.mean(repeats, axis=0)
+        groups = memberships[city, fold]
+        for group in (*GROUPS, "all"):
+            selected = differences if group == "all" else differences[groups == group]
+            n = len(selected)
+            bg = selected[:, 2]
+            values = (
+                selected[:, 0].sum(),
+                selected[:, 1].mean() if n else np.nan,
+                bg.mean() if n else np.nan,
+                np.median(bg) if n else np.nan,
+                (bg > 0).mean() if n else np.nan,
+                (bg == 0).mean() if n else np.nan,
+            )
+            for metric, value in zip(STRUCTURE_METRICS, values, strict=True):
+                folds.append(
+                    {
+                        "city": city,
+                        "outer_fold": fold,
+                        "condition": condition,
+                        "contrast": contrast,
+                        "group": group,
+                        "positive_cells": n,
+                        "metric": metric,
+                        "value": value,
+                    }
+                )
+    return pd.DataFrame(folds), pd.DataFrame(measurements)
+
+
+def aggregate_metrics(units: pd.DataFrame) -> tuple[pd.DataFrame, pd.DataFrame]:
+    expected = set(product(range(5), "12345", SEEDS))
+    require(set(units.variant) == {*VARIANTS, "A*"}, "all thirteen variants plus A* required")
+    require(not units.duplicated([*UNIT, "seed", "variant"]).any(), "duplicate unit metric")
+    for _, rows in units.groupby(["city", "variant"]):
+        require(
+            set(rows[["outer_fold", "trajectory", "seed"]].itertuples(index=False, name=None))
+            == expected,
+            "complete fold/trajectory/seed matrix required",
+        )
+    trajectories = units.groupby([*UNIT, "variant"], as_index=False)[list(ALL_METRICS)].mean()
+    folds = trajectories.groupby(["city", "outer_fold", "variant"], as_index=False)[
+        list(ALL_METRICS)
+    ].mean()
+    long = folds.melt(
+        id_vars=["city", "outer_fold", "variant"], var_name="metric", value_name="value"
+    )
+    wide = paired_wide(long, ["city", "outer_fold", "metric"], "variant", "value")
+    effects = pd.concat(
+        [
+            (wide[a] - wide[b]).rename("value").reset_index().assign(contrast=f"{a} - {b}")
+            for a, b in CONTRASTS
+        ],
+        ignore_index=True,
+    )
+    return long, effects
+
+
+def check_previous(root: Path, folds: pd.DataFrame, structure: pd.DataFrame, hashes: dict) -> dict:
+    """Compare every inherited metric and overlapping support diagnostic at full precision."""
+    path = root / "results/reviewer-revision-v1-0d119f16fcb9-summary/methods_folds.csv"
+    hashes[path.relative_to(root).as_posix()] = sha256_file(path)
+    previous = pd.read_csv(path)
+    paired = previous.merge(
+        folds,
+        on=["city", "outer_fold", "variant", "metric"],
+        suffixes=("_old", "_new"),
+        validate="1:1",
+        how="left",
+    )
+    require(len(paired) == 700, "previous five-metric matrix must have 700 fold rows")
+    error = np.abs(paired.value_old - paired.value_new)
+    require(error.notna().all() and error.max() < 1e-12, "previous metrics disagree")
+    path = root / "results/reviewer_training_structure_20261011/metric_folds.csv"
+    hashes[path.relative_to(root).as_posix()] = sha256_file(path)
+    previous = pd.read_csv(path)
+    previous = previous.loc[previous.analysis.eq("A")].copy()
+    previous["contrast"] = previous.comparison.map(
+        {"G2-G0": "SAGE-G2-2 - SAGE-G0-2", "G2-Fixed-filter": "FF-G2-1 - SAGE-G2-2"}
+    )
+    previous = previous.loc[previous.contrast.notna()]
+    flip = previous.comparison.eq("G2-Fixed-filter")
+    # Fractions cannot be sign-reversed from an already aggregated inverse comparison.
+    previous = previous.loc[
+        ~previous.metric.isin(["background_improved_fraction", "background_unchanged_fraction"])
+    ].copy()
+    previous.loc[flip.reindex(previous.index), "value"] *= -1
+    previous["metric"] = previous.metric.replace(
+        {"fullbank_midrank_gain": "candidate_midrank_gain"}
+    )
+    paired = previous.merge(
+        structure.loc[structure.condition.eq("sampled_1to10")],
+        on=["city", "outer_fold", "contrast", "group", "metric"],
+        validate="1:1",
+        suffixes=("_old", "_new"),
+    )
+    require(len(paired) == 240, "expected 240 overlapping structure fold values")
+    require(
+        np.allclose(paired.value_old, paired.value_new, atol=1e-12, rtol=0, equal_nan=True),
+        "new sampled diagnostics disagree with previous midpoint analysis",
+    )
+    return {
+        "previous_metric_fold_values": 700,
+        "maximum_metric_error": float(error.max()),
+        "previous_structure_fold_values": 240,
+    }
+
+
+README = """# Final review: evaluation mixture and matched support diagnostics
+
+All predictions are from complete reviewer-revision-v1-0d119f16fcb9. The existing verifier
+checks frozen source/input/environment/probe identities, all 1,250 inner receipts, 1,550 outer
+receipts and payload hashes, and reconstructs 50 selections using inner sampled PB-AP only.
+No fitting, hyperparameter change or selection based on outer scores occurs. A* keeps its
+original six-family inner-only choice. Deterministic families have one actual fit per unit;
+their three identical seed slots are checked and contribute only to within-fold averaging.
+
+Metrics: sampled_pb_ap and sampled_pb_auc average three separate fixed 1:10 banks.
+full_background_ap and full_background_pb_auc use the entire eligible held-out domain once.
+full_weighted_1to10_ap uses those same scores and all candidates, with weight 1 per positive
+and 10*M/U per background (M positives, U backgrounds in that fold), hence weighted prevalence
+1/11. AP is threshold precision summed over positive recall increments, including exact ties.
+Weighted AP is NOT the expectation of finite sampled AP. The weighted-minus-natural comparison
+isolates weight normalization on the same fixed predictions and candidate identities; the
+sampled-minus-weighted comparison describes the observed fixed-bank discrepancy, not a causal
+estimate or exact finite-sampling expectation. PB-AUC is mean positive background midrank,
+i.e. P(score_positive > score_background) + 0.5*P(tie). Uniform within-class reweighting does not
+change it. These evaluate recorded positives against unlabeled background, not true flood risk.
+R@1/5/10% uses exact per-fold q*N candidate budgets with fractional expected tie inclusion.
+There is no pooling of city scores or repetition of full background across the three banks.
+
+Support A labels are rebuilt from frozen G2 edges/partitions and checked against existing labels:
+Z0 originally unsupported; Zcut (= Zlost) loses support after partition pruning; Zplus (= Z+)
+retains support. The two FF contrasts compare independently selected pipelines in the same
+36-input MLP candidate family. SAGE and FF-SAGE companion contrasts use explicit variant names.
+Per-positive AP precision/M differences sum exactly to each overall AP difference. Empty groups
+contribute zero AP. Candidate midpoint = (number below + half number tied)/N, including positives.
+Background midrank uses backgrounds only. Both rank definitions remain UNWEIGHTED in the
+full_weighted_1to10 condition: weighting changes AP alone. Thus the two full-domain rank outputs
+are deliberately identical. Weighted rank, sampled rank, and full-domain rank are not conflated.
+For sampled ranks, bank-specific positive ranks are averaged across three banks first.
+Each unique positive's paired change is then averaged across seeds/trajectories within its fold;
+group mean/median/improved/unchanged fractions are computed from these per-positive averages.
+No per-positive values or identifiers are exported. Positive fraction summaries are NOT pooled
+over cities/folds. Rank means require every fold nonempty; rank intervals additionally require
+at least five distinct positives in each fold. AP includes all five folds including empty groups.
+
+All summaries weight five folds equally after averaging seed slots then trajectories. Intervals
+are descriptive common fold-resampling quantiles from 10,000 draws, RNG seed 20261011; LOFO means
+omit each fold in turn. They are neither significance tests nor calibrated new-event confidence
+intervals. Overlapping training sets and repeated fits do not create extra independent folds.
+All nine prespecified pipeline contrasts are reported for all eight metrics, without metric-based
+selection. methods_units.csv contains aggregate task metrics only; structure_measurements.csv
+contains group AP contributions only. CSVs include full precision; AP and rank values are 0–1.
+
+Run: `.venv/Scripts/python.exe scripts/analyze_final_review_evaluation.py`
+"""
+
+
+def main() -> None:
+    parser = argparse.ArgumentParser(description=__doc__)
+    parser.add_argument("--root", type=Path, default=Path(__file__).resolve().parents[1])
+    parser.add_argument(
+        "--run-root",
+        type=Path,
+        default=Path("artifacts/remote_runs/reviewer-revision-v1-0d119f16fcb9"),
+    )
+    parser.add_argument(
+        "--output", type=Path, default=Path("results/final_review_evaluation_20261012")
+    )
+    args = parser.parse_args()
+    root, hashes = args.root.resolve(), {}
+    run = logical_run_path(root, args.run_root)
+    output = (root / args.output).resolve()
+    require(
+        not output.exists(), "use a new output directory; previous outputs must not be overwritten"
+    )
+    config, grid = verify_provenance(root, run, hashes)
+    selections, outer, best = validate_selections(root, run, config, grid, hashes)
+    print("Verified all receipts, identities and inner-only selections.", flush=True)
+    structure, _ = structure_inputs(root, hashes)
+    lookup = structure.set_index(["city", "outer_fold", "grid_id"]).A
+    results, diagnostics, memberships, signatures, positives, domains = [], {}, {}, {}, {}, {}
+    for index, (task, path) in enumerate(outer):
+        frame = pd.read_parquet(path)
+        deterministic = task.realization_id in DETERMINISTIC
+        check_identity(frame, task, copied_seeds=deterministic)
+        unit = (task.city, int(task.outer_fold), task.trajectory)
+        slots = validated_seed_frames(frame, deterministic, task.seed)
+        cached = None
+        for seed, rows in slots:
+            # Identical deterministic copies were verified above; score one physical fit only.
+            if cached is None:
+                metrics, signature, positive, domain = metrics_and_signature(rows)
+                extra, detail = evaluate_rows(rows, positive)
+                cached = metrics, signature, positive, domain, extra, detail
+            else:
+                metrics, signature, positive, domain, extra, detail = cached
+            require(signatures.setdefault(unit, signature) == signature, "unpaired banks/domains")
+            require(positives.setdefault(unit[:2], positive) == positive, "unpaired positives")
+            require(domains.setdefault(unit[:2], domain) == domain, "unpaired candidate domains")
+            require(
+                np.isclose(
+                    detail["sampled_1to10"][:, 0].sum(),
+                    metrics["sampled_pb_ap"],
+                    atol=1e-12,
+                    rtol=0,
+                ),
+                "sampled AP decomposition differs",
+            )
+            require(
+                np.isclose(
+                    detail["full_domain"][:, 0].sum(),
+                    metrics["full_background_ap"],
+                    atol=1e-12,
+                    rtol=0,
+                ),
+                "full-domain AP decomposition differs",
+            )
+            results.append(
+                dict(zip(UNIT, unit, strict=True))
+                | {"seed": seed, "variant": task.realization_id, **metrics, **extra}
+            )
+            if task.realization_id in STRUCTURE_VARIANTS:
+                groups = lookup.loc[
+                    [(unit[0], unit[1], node) for node in sorted(positive)]
+                ].to_numpy()
+                require(set(groups).issubset(GROUPS), "unexpected support labels")
+                if unit[:2] in memberships:
+                    require(
+                        np.array_equal(memberships[unit[:2]], groups), "support pairing differs"
+                    )
+                memberships[unit[:2]] = groups
+                diagnostics.setdefault((*unit, seed), {})[task.realization_id] = detail
+        if (index + 1) % 200 == 0:
+            print(f"Scored {index + 1}/{len(outer)} verified fits.", flush=True)
+    for city, expected in (("zhengzhou", 791), ("beijing", 296)):
+        sets = [positives[city, fold] for fold in range(5)]
+        require(
+            sum(map(len, sets)) == len(set().union(*sets)) == expected,
+            "positive fold overlap/count",
+        )
+        sets = [domains[city, fold] for fold in range(5)]
+        require(sum(map(len, sets)) == len(set().union(*sets)), "candidate fold overlap")
+    units = pd.DataFrame(results)
+    require(len(units) == 1950, "incomplete paired seed matrix")
+    alternative = units.loc[
+        [
+            row.variant == best[row.city, row.outer_fold, row.trajectory]
+            for row in units.itertuples()
+        ]
+    ].assign(variant="A*")
+    units = pd.concat([units, alternative], ignore_index=True)
+    methods, effects = aggregate_metrics(units)
+    method_summary, method_lofo = describe_folds(methods, ["city", "variant", "metric"], "value")
+    effect_summary, effect_lofo = describe_folds(effects, ["city", "contrast", "metric"], "value")
+    structure_folds, measurements = structure_tables(diagnostics, memberships)
+    structure_summary, structure_lofo = summarize_structure(structure_folds)
+    qa = check_previous(root, methods, structure_folds, hashes)
+    overall = structure_folds.loc[
+        structure_folds.group.eq("all") & structure_folds.metric.eq("ap_contribution")
+    ].copy()
+    overall["metric"] = overall.condition.map(
+        dict(
+            zip(
+                CONDITIONS,
+                ["sampled_pb_ap", "full_background_ap", "full_weighted_1to10_ap"],
+                strict=True,
+            )
+        )
+    )
+    paired = overall.merge(
+        effects,
+        on=["city", "outer_fold", "contrast", "metric"],
+        validate="1:1",
+        suffixes=("_structure", "_overall"),
+    )
+    require(len(paired) == 120, "missing overall AP companion contrast")
+    require(
+        np.allclose(paired.value_structure, paired.value_overall, atol=1e-12, rtol=0),
+        "structure AP and method AP differences disagree",
+    )
+    weight_counts = units.groupby(["city", "outer_fold"], as_index=False)[
+        ["positive_count", "domain_count", "background_weight_1to10"]
+    ].first()
+    tables = {
+        "methods_units.csv": units,
+        "methods_folds.csv": methods,
+        "methods_summary.csv": method_summary,
+        "methods_lofo.csv": method_lofo,
+        "contrasts_folds.csv": effects,
+        "contrasts_summary.csv": effect_summary,
+        "contrasts_lofo.csv": effect_lofo,
+        "structure_measurements.csv": measurements,
+        "structure_folds.csv": structure_folds,
+        "structure_summary.csv": structure_summary,
+        "structure_lofo.csv": structure_lofo,
+        "domain_weights.csv": weight_counts,
+        "selections.csv": selections,
+    }
+    output.mkdir(parents=True)
+    for name, table in tables.items():
+        require(
+            not {"grid_id", "score", "geometry", "x", "y"}.intersection(table.columns),
+            "cell-level fields cannot be exported",
+        )
+        table.to_csv(output / name, index=False)
+    (output / "README.md").write_text(README, encoding="utf-8")
+    qa.update(
+        {
+            "status": "pass",
+            "ap_structure_overall_checks": 120,
+            "method_summary_rows": len(method_summary),
+            "contrast_summary_rows": len(effect_summary),
+            "structure_summary_rows": len(structure_summary),
+            "all_folds_equal_weight": True,
+            "retraining": False,
+            "outer_selection": False,
+        }
+    )
+    (output / "qa.json").write_text(json.dumps(qa, indent=2) + "\n", encoding="utf-8")
+    for name in [
+        Path(__file__).name,
+        "analyze_reviewer_training_structure.py",
+        "summarize_reviewer_training.py",
+        "analyze_reviewer_revision.py",
+    ]:
+        path = root / "scripts" / name
+        hashes[path.relative_to(root).as_posix()] = sha256_file(path)
+    manifest = {
+        "status": "complete",
+        "run_namespace": run.name,
+        "inner_candidates": 1250,
+        "outer_refits": len(outer),
+        "selection_units": len(best),
+        "bootstrap_draws": 10000,
+        "bootstrap_seed": 20261011,
+        "input_hashes": hashes,
+        "outputs": {name: sha256_file(output / name) for name in [*tables, "README.md", "qa.json"]},
+    }
+    (output / "manifest.json").write_text(json.dumps(manifest, indent=2) + "\n", encoding="utf-8")
+    print(f"Complete aggregate-only analysis: {output}", flush=True)
+
+
+if __name__ == "__main__":
+    main()

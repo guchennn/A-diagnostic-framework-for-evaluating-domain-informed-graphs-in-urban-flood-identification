@@ -1,0 +1,614 @@
+"""Summarize a complete post-review run without training or selecting on outer scores."""
+
+from __future__ import annotations
+
+import argparse
+import json
+import os
+from collections import Counter
+from itertools import product
+from pathlib import Path
+
+import numpy as np
+import pandas as pd
+import yaml
+from analyze_reviewer_revision import describe_folds, paired_wide, ranking_metrics
+
+from floodgnn_ceus.io import canonical_json_bytes, sha256_bytes, sha256_file
+from floodgnn_ceus.training import PROBE_CELL, TaskKey, outer_refit_epochs
+
+SEEDS = ("NEURAL-1", "NEURAL-2", "NEURAL-3")
+CITIES = ("zhengzhou", "beijing")
+DETERMINISTIC = {"KDE", "XGBoost", "LightGBM", "Neighbor-XGB"}
+VARIANTS = (
+    "KDE",
+    "XGBoost",
+    "LightGBM",
+    "Neighbor-XGB",
+    "MLP",
+    "FF-G0-1",
+    "FF-G1-1",
+    "FF-G2-1",
+    "FF-G2-2",
+    "SAGE-G0-2",
+    "SAGE-G1-2",
+    "SAGE-G2-2",
+    "SAGE-G2-1",
+)
+ALTERNATIVES = ("KDE", "XGBoost", "LightGBM", "Neighbor-XGB", "MLP", "FF-G2-1")
+CONTRASTS = (
+    ("FF-G2-1", "FF-G0-1"),
+    ("FF-G2-1", "FF-G1-1"),
+    ("FF-G2-2", "FF-G2-1"),
+    ("SAGE-G2-1", "SAGE-G2-2"),
+    ("FF-G2-1", "SAGE-G2-1"),
+    ("FF-G2-1", "SAGE-G2-2"),
+    ("SAGE-G2-2", "SAGE-G0-2"),
+    ("SAGE-G2-2", "SAGE-G1-2"),
+    ("SAGE-G2-2", "A*"),
+)
+UNIT = ["city", "outer_fold", "trajectory"]
+METRICS = (
+    "sampled_pb_ap",
+    "full_background_ap",
+    "recall_top_1pct",
+    "recall_top_5pct",
+    "recall_top_10pct",
+)
+
+
+def read_json(path: Path) -> dict:
+    return json.loads(path.read_text("utf-8"))
+
+
+def require(condition: bool, message: str) -> None:
+    if not condition:
+        raise ValueError(message)
+
+
+def logical_run_path(root: Path, path: Path) -> Path:
+    """Keep the repository entry when its final directory is an external junction."""
+    # abspath normalizes relative paths and '..' without following a junction/symlink.
+    # Only this run entry may point outside root; manifest source/input paths are
+    # still resolved and confined separately in verify_provenance.
+    run = Path(os.path.abspath(path))
+    expected_parent = root / "artifacts" / "remote_runs"
+    require(
+        run.parent == expected_parent and run.name.startswith("reviewer-revision-v1-"),
+        "run must use the repository artifacts/remote_runs/reviewer-revision-v1-* entry",
+    )
+    return run
+
+
+def inventory(run: Path) -> dict:
+    """Count receipts without reading any inner or outer scores."""
+    plan_path = run / "plan.json"
+    plan = read_json(plan_path) if plan_path.is_file() else {}
+    counts = {}
+    for phase in ("inner", "outer"):
+        counts[phase] = dict(
+            Counter(
+                read_json(p).get("status", "unknown")
+                for p in (run / phase / "tasks").rglob("status.json")
+            )
+        )
+    return {
+        "run": str(run),
+        "metrics_read": False,
+        "status": "inventory_only_not_validated",
+        "gates_present": {
+            name: (run / name).is_file()
+            for name in ("plan.json", "local_environment_lock.json", "resource_probe.json")
+        },
+        "counts": counts,
+        "selection_files": len(list((run / "selections").glob("*.json"))),
+        "expected_inner": plan.get("inner_candidate_tasks", 1250),
+        "expected_outer": plan.get("outer_refits", 1550),
+    }
+
+
+def verify_provenance(root: Path, run: Path, hashes: dict[str, str]) -> tuple[dict, dict]:
+    def hashed(path: Path) -> dict:
+        hashes[path.relative_to(root).as_posix()] = sha256_file(path)
+        return read_json(path)
+
+    plan = hashed(run / "plan.json")
+    lock = hashed(run / "local_environment_lock.json")
+    probe = hashed(run / "resource_probe.json")
+    source_digest = sha256_bytes(canonical_json_bytes(plan["source_files"]))
+    require(
+        plan["source_sha256"] == source_digest == lock["source_sha256"],
+        "plan/lock source identity differs",
+    )
+    require(
+        plan["run_namespace"] == run.name == f"reviewer-revision-v1-{source_digest[:12]}",
+        "run namespace differs",
+    )
+    for name, expected in plan["source_files"].items():
+        path = (root / name).resolve()
+        require(path.is_relative_to(root), "source path escapes repository")
+        require(sha256_file(path) == expected, f"frozen source hash differs: {name}")
+        hashes[name] = expected
+    require(
+        sha256_bytes(canonical_json_bytes(lock["files"])) == lock["input_sha256"],
+        "input manifest digest differs",
+    )
+    for entry in lock["files"]:
+        path = (root / entry["path"]).resolve()
+        require(path.is_relative_to(root), "input path escapes repository")
+        require(
+            path.stat().st_size == entry["bytes"] and sha256_file(path) == entry["sha256"],
+            f"locked input differs: {entry['path']}",
+        )
+        hashes[entry["path"]] = entry["sha256"]
+    require(
+        sha256_file(root / "artifacts/protocol_lock.json") == lock["protocol_lock_sha256"],
+        "protocol lock differs",
+    )
+    expected_probe = {
+        "status": "success",
+        "epochs": 1,
+        "cell": PROBE_CELL,
+        "performance_blind": True,
+        "predictions_written": False,
+        "metrics_computed": False,
+        "source_sha256": source_digest,
+        "input_sha256": lock["input_sha256"],
+        "lock_sha256": sha256_file(run / "local_environment_lock.json"),
+    }
+    require(
+        all(probe.get(k) == v for k, v in expected_probe.items()), "probe is incomplete or unbound"
+    )
+    config = yaml.safe_load((root / "configs/reviewer_revision_v1.yaml").read_text("utf-8"))
+    require(
+        config["variants"] == plan["variants"]
+        and tuple(v["id"] for v in config["variants"]) == VARIANTS,
+        "expected 13 frozen variants",
+    )
+    require(
+        tuple(config["alternative_order"]) == tuple(plan["alternative_order"]) == ALTERNATIVES,
+        "A* families/order differ",
+    )
+    require(
+        config["cities"] == list(CITIES)
+        and config["outer_folds"] == list(range(5))
+        and config["trajectories"] == list("12345")
+        and config["outer_seeds"] == list(SEEDS)
+        and config["inner_folds"] == [0, 1, 2]
+        and config["configs"] == ["SMALL", "MEDIUM"]
+        and config["budget"] == "100",
+        "expected complete two-city budget-100 design",
+    )
+    require(
+        plan["outer_units"] == 50
+        and plan["inner_candidate_tasks"] == 1250
+        and plan["outer_refits"] == 1550,
+        "planned task counts differ",
+    )
+    require(
+        config["preregistered"] is False and plan["preregistered"] is False,
+        "post-review analysis is not preregistered",
+    )
+    grid = yaml.safe_load((root / "configs/model_grid.yaml").read_text("utf-8"))
+    return config, grid
+
+
+def task_key(unit: tuple, variant: dict, config: str, seed: str, protocol: str) -> TaskKey:
+    city, fold, trajectory = unit
+    return TaskKey(
+        protocol_id=protocol,
+        experiment_id="reviewer-revision-v1-inner" if seed == "HPO-1" else "reviewer-revision-v1",
+        city=city,
+        label_layer="STRICT-LOC",
+        reveal_mechanism="uniform",
+        outer_fold=str(fold),
+        budget="100",
+        trajectory=trajectory,
+        feature_set="FULL-COMMON",
+        model=variant["model"],
+        graph_id=variant["graph"],
+        realization_id=variant["id"],
+        config=config,
+        seed=seed,
+    )
+
+
+def verify_task(run: Path, phase: str, task: TaskKey, hashes: dict[str, str], root: Path) -> Path:
+    status_path = run / phase / "tasks" / task.relative_path() / "status.json"
+    require(
+        status_path.is_file(),
+        f"incomplete run: missing {phase} task {task.realization_id}/{task.city}/f{task.outer_fold}/t{task.trajectory}/{task.seed}",
+    )
+    receipt = read_json(status_path)
+    require(
+        receipt.get("status") == "success" and receipt.get("task") == task.as_dict(),
+        "required task is unsuccessful or identity differs",
+    )
+    name, field = (
+        ("inner_scores.parquet", "result_sha256")
+        if phase == "inner"
+        else ("oof.parquet", "oof_sha256")
+    )
+    result = status_path.with_name(name)
+    digest = sha256_file(result)
+    require(receipt.get(field) == digest, f"{phase} result hash differs")
+    hashes[status_path.relative_to(root).as_posix()] = sha256_file(status_path)
+    hashes[result.relative_to(root).as_posix()] = digest
+    return result
+
+
+def check_identity(frame: pd.DataFrame, task: TaskKey, *, copied_seeds: bool = False) -> None:
+    require(frame.status.eq("success").all(), "unsuccessful result rows")
+    for field, expected in task.as_dict().items():
+        if field == "seed" and copied_seeds:
+            continue
+        require(
+            frame[field].astype(str).eq(expected).all(), f"prediction identity differs: {field}"
+        )
+
+
+def validate_selections(
+    root: Path, run: Path, config: dict, grid: dict, hashes: dict[str, str]
+) -> tuple[pd.DataFrame, list[tuple[TaskKey, Path]], dict]:
+    """Rebuild each saved selection from all inner candidates before reading outer metrics."""
+    table, outer = [], []
+    best_by_unit = {}
+    expected_inner, expected_outer, expected_selections = set(), set(), set()
+    for unit in product(CITIES, range(5), "12345"):
+        city, fold, trajectory = unit
+        path = run / "selections" / f"{city}-f{fold}-b100-t{trajectory}.json"
+        require(path.is_file(), f"incomplete run: missing selection {path.name}")
+        expected_selections.add(path.resolve())
+        selection = read_json(path)
+        hashes[path.relative_to(root).as_posix()] = sha256_file(path)
+        require(
+            selection["unit"]
+            == {"city": city, "outer_fold": fold, "budget": "100", "trajectory": trajectory},
+            "selection unit differs",
+        )
+        require(
+            set(selection["variants"]) == set(VARIANTS)
+            and tuple(selection["alternative_order"]) == ALTERNATIVES,
+            "selection variants/families differ",
+        )
+        inner_choices = {}
+        for variant in config["variants"]:
+            candidates = []
+            for candidate in ["NA"] if variant["model"] == "KDE" else ["SMALL", "MEDIUM"]:
+                task = task_key(unit, variant, candidate, "HPO-1", grid["protocol_id"])
+                result = verify_task(run, "inner", task, hashes, root)
+                expected_inner.add(result.with_name("status.json").resolve())
+                frame = pd.read_parquet(result).sort_values("inner_fold")
+                check_identity(frame, task)
+                require(
+                    frame.inner_fold.tolist() == [0, 1, 2] and np.isfinite(frame.score).all(),
+                    "inner folds incomplete/nonfinite",
+                )
+                candidates.append(
+                    {
+                        "config": candidate,
+                        "score": float(frame.score.mean()),
+                        "best_epochs": frame.best_epoch.astype(int).tolist(),
+                    }
+                )
+            # max retains the first candidate (SMALL) on exactly equal inner scores.
+            chosen = max(candidates, key=lambda x: x["score"])
+            saved = selection["variants"][variant["id"]]
+            for key, expected in {**chosen, **variant}.items():
+                require(
+                    saved.get(key) == expected,
+                    f"saved selection differs from inner-only choice: {variant['id']}/{key}",
+                )
+            neural = variant["id"] not in DETERMINISTIC
+            epochs = outer_refit_epochs(chosen["best_epochs"]) if neural else 0
+            require(saved.get("refit_epochs") == epochs, "selected refit epochs differ")
+            inner_choices[variant["id"]] = chosen
+            table.append(
+                {
+                    "city": city,
+                    "outer_fold": fold,
+                    "trajectory": trajectory,
+                    "variant": variant["id"],
+                    "model": variant["model"],
+                    "graph": variant["graph"],
+                    "selected_config": chosen["config"],
+                    "inner_pb_ap": chosen["score"],
+                    "refit_epochs": epochs,
+                    "actual_fits": 3 if neural else 1,
+                    "paired_seed_slots": 3,
+                }
+            )
+            for seed in SEEDS if neural else SEEDS[:1]:
+                task = task_key(unit, variant, chosen["config"], seed, grid["protocol_id"])
+                result = verify_task(run, "outer", task, hashes, root)
+                expected_outer.add(result.with_name("status.json").resolve())
+                outer.append((task, result))
+        best = max(ALTERNATIVES, key=lambda variant: inner_choices[variant]["score"])
+        require(
+            selection["best_alternative"] == selection["variants"][best],
+            "A* differs from complete inner-only alternative comparison",
+        )
+        best_by_unit[unit] = best
+    for phase, expected in (("inner", expected_inner), ("outer", expected_outer)):
+        observed = {p.resolve() for p in (run / phase / "tasks").rglob("status.json")}
+        require(observed == expected, f"{phase} task inventory has unexpected/duplicate tasks")
+    require(
+        {p.resolve() for p in (run / "selections").glob("*.json")} == expected_selections,
+        "selection inventory differs",
+    )
+    table = pd.DataFrame(table)
+    table["selected_as_alternative"] = [
+        row.variant == best_by_unit[(row.city, row.outer_fold, row.trajectory)]
+        for row in table.itertuples()
+    ]
+    return table, outer, best_by_unit
+
+
+def validated_seed_frames(
+    frame: pd.DataFrame, deterministic: bool, seed: str
+) -> list[tuple[str, pd.DataFrame]]:
+    """Verify copied deterministic slots; retain slots only for paired averaging."""
+    expected = set(SEEDS) if deterministic else {seed}
+    require(set(frame.seed) == expected, "missing or unexpected paired seed slots")
+    frames = []
+    reference = None
+    for slot, rows in frame.groupby("seed", sort=True):
+        rows = rows.sort_values(["bank_id", "grid_id", "sample_role"]).reset_index(drop=True)
+        require(not rows.duplicated(["bank_id", "grid_id"]).any(), "duplicate prediction rows")
+        view = rows[["bank_id", "grid_id", "sample_role", "score"]]
+        if deterministic:
+            if reference is not None:
+                require(reference.equals(view), "deterministic seed copies differ")
+            reference = view
+        frames.append((slot, rows))
+    return frames
+
+
+def metrics_and_signature(rows: pd.DataFrame) -> tuple[dict, str, frozenset, frozenset]:
+    """Evaluate sampled banks separately and full-background candidates once."""
+    require(set(rows.bank_id) == {"NA", "1", "2", "3"}, "background/bank inventory differs")
+    require(np.isfinite(rows.score).all(), "nonfinite predictions")
+    domain = rows.loc[rows.bank_id.eq("NA")].set_index("grid_id").sort_index()
+    require(domain.sample_role.eq("NA").all(), "full-background roles must be NA")
+    bank_aps, positive = [], None
+    for bank in ("1", "2", "3"):
+        sample = rows.loc[rows.bank_id.eq(bank)].set_index("grid_id")
+        require(set(sample.sample_role) == {"positive", "background"}, "sample roles differ")
+        labels = sample.sample_role.eq("positive").to_numpy(dtype=np.int8)
+        require(len(sample) == 11 * int(labels.sum()), "sampled bank is not 1:10")
+        positive_ids = frozenset(sample.index[labels.astype(bool)])
+        require(positive is None or positive_ids == positive, "bank positives differ")
+        positive = positive_ids
+        require(set(sample.index).issubset(domain.index), "bank rows missing from full domain")
+        require(
+            np.array_equal(domain.loc[sample.index, "score"].to_numpy(), sample.score.to_numpy()),
+            "bank/full-domain predictions differ",
+        )
+        bank_aps.append(ranking_metrics(labels, sample.score.to_numpy())["ap"])
+    full = ranking_metrics(domain.index.isin(positive).astype(np.int8), domain.score.to_numpy())
+    signature = sha256_bytes(
+        pd.util.hash_pandas_object(
+            rows[["bank_id", "grid_id", "sample_role"]]
+            .sort_values(["bank_id", "grid_id", "sample_role"])
+            .reset_index(drop=True),
+            index=False,
+        )
+        .to_numpy()
+        .tobytes()
+    )
+    return (
+        {
+            "sampled_pb_ap": float(np.mean(bank_aps)),
+            "full_background_ap": full.pop("ap"),
+            **full,
+            "domain_count": len(domain),
+            "positive_count": len(positive),
+        },
+        signature,
+        positive,
+        frozenset(domain.index),
+    )
+
+
+def score_complete_run(outer: list[tuple[TaskKey, Path]], best_by_unit: dict) -> pd.DataFrame:
+    results, signatures, positives, domains = [], {}, {}, {}
+    for task, path in outer:
+        frame = pd.read_parquet(path)
+        deterministic = task.realization_id in DETERMINISTIC
+        check_identity(frame, task, copied_seeds=deterministic)
+        unit = (task.city, int(task.outer_fold), task.trajectory)
+        for seed, rows in validated_seed_frames(frame, deterministic, task.seed):
+            metrics, signature, positive, domain = metrics_and_signature(rows)
+            require(
+                signatures.setdefault(unit, signature) == signature,
+                "unpaired domain/bank/label rows across variants/seeds",
+            )
+            fold_key = unit[:2]
+            require(
+                positives.setdefault(fold_key, positive) == positive,
+                "fold positives differ across trajectories",
+            )
+            require(
+                domains.setdefault(fold_key, domain) == domain,
+                "fold candidate domain differs across trajectories",
+            )
+            results.append(
+                {
+                    "city": task.city,
+                    "outer_fold": int(task.outer_fold),
+                    "trajectory": task.trajectory,
+                    "seed": seed,
+                    "variant": task.realization_id,
+                    **metrics,
+                }
+            )
+    for city, expected in (("zhengzhou", 791), ("beijing", 296)):
+        sets = [positives[city, fold] for fold in range(5)]
+        require(
+            sum(map(len, sets)) == len(set().union(*sets)) == expected,
+            "positive folds overlap or total differs",
+        )
+        sets = [domains[city, fold] for fold in range(5)]
+        require(sum(map(len, sets)) == len(set().union(*sets)), "full candidate folds overlap")
+    units = pd.DataFrame(results)
+    require(len(units) == 1950, "paired output matrix incomplete")
+    paired_wide(units, [*UNIT, "seed"], "variant", "sampled_pb_ap")
+    alternative = units.loc[
+        [
+            row.variant == best_by_unit[(row.city, row.outer_fold, row.trajectory)]
+            for row in units.itertuples()
+        ]
+    ].copy()
+    alternative["variant"] = "A*"
+    return pd.concat([units, alternative], ignore_index=True)
+
+
+def aggregate_units(
+    units: pd.DataFrame, selections: pd.DataFrame
+) -> tuple[pd.DataFrame, pd.DataFrame]:
+    """Seeds and trajectories are within-fold repeats; only five folds are resampled."""
+    require(not units.duplicated([*UNIT, "seed", "variant"]).any(), "duplicate unit metric rows")
+    expected = set(product(range(5), "12345", SEEDS))
+    for _, rows in units.groupby(["city", "variant"]):
+        require(
+            set(rows[["outer_fold", "trajectory", "seed"]].itertuples(index=False, name=None))
+            == expected,
+            "complete fold/trajectory/seed matrix required",
+        )
+    # First average seed slots within trajectory, then trajectories within each fold.
+    trajectory = units.groupby([*UNIT, "variant"], as_index=False)[list(METRICS)].mean()
+    folds = trajectory.groupby(["city", "outer_fold", "variant"], as_index=False)[
+        list(METRICS)
+    ].mean()
+    fits = selections.groupby(["city", "outer_fold", "variant"], as_index=False).actual_fits.sum()
+    chosen = selections.loc[selections.selected_as_alternative].copy()
+    chosen["variant"] = "A*"
+    fits = pd.concat(
+        [fits, chosen.groupby(["city", "outer_fold", "variant"], as_index=False).actual_fits.sum()]
+    )
+    folds = folds.merge(fits, on=["city", "outer_fold", "variant"], validate="one_to_one")
+    folds["n_trajectories"] = 5
+    folds["paired_seed_slots_per_trajectory"] = 3
+    long = folds.melt(
+        id_vars=["city", "outer_fold", "variant"],
+        value_vars=list(METRICS),
+        var_name="metric",
+        value_name="value",
+    )
+    wide = paired_wide(long, ["city", "outer_fold", "metric"], "variant", "value")
+    effects = pd.concat(
+        [
+            (wide[a] - wide[b]).rename("effect").reset_index().assign(contrast=f"{a} - {b}")
+            for a, b in CONTRASTS
+        ],
+        ignore_index=True,
+    )
+    return folds, effects
+
+
+README = """# Complete post-review training summary
+
+This is a post-review analysis, not preregistered confirmation. All 1,250 inner
+candidate tasks and 1,550 selected outer fits must succeed and match their hashes
+before outer metrics are read. All 50 selections are independently checked against
+complete three-inner-fold scores (SMALL wins exact ties), including the original six
+A* families in their fixed tie order. Outer metrics never choose a model or repair a
+missing task. Source, allowlisted input, lock, resource-probe, and result hashes are
+checked; the manifest records their identities. Training code is never modified.
+Runs are accessed through the repository artifacts/remote_runs/<namespace> entry;
+that directory may be a local junction to another volume. Provenance keys retain
+the logical repository path. Manifest source/input paths still cannot escape the
+repository, and all identity and task-completeness checks remain required.
+
+AP is average precision for recorded positives against unlabeled background, not
+population flood precision or calibration. sampled_pb_ap averages the three separately
+evaluated 1:10 banks. full_background_ap and R@1/5/10% use each eligible held-out domain
+once per seed slot, with recorded positives recovered from all three agreeing banks.
+They do not pool/repeat background banks or form a city-wide pooled ranking. Fractional
+expected inclusion splits score ties at exact q*N budget, so constant scores yield
+recall q. Domain, bank, and label identities are strictly paired across variants/seeds.
+
+All summaries average seeds within trajectory, five trajectories within fold, and
+five folds equally. Four deterministic families fit only once per trajectory; their
+three output seed slots are verified identical and represent paired slots, not three
+independent fits. actual_fits reports real fits; A* counts the selected family's fits.
+Only five folds enter resampling. The 10,000 shared fold draws (seed 20261011) produce
+descriptive resampling_q025/q975 values, not validated 95% confidence intervals or
+p-values. Overlapping training sets, fitted-model/selection uncertainty, and future
+events are not represented. No multiplicity-controlled confirmatory claim is made.
+LOFO files report omission of each fold. Every fixed contrast was specified in the
+postprocessor before reading outer results. Predictions are never exported: only
+aggregate metrics, selections, counts, and provenance hashes are written.
+"""
+
+
+def main() -> None:
+    parser = argparse.ArgumentParser(description=__doc__)
+    parser.add_argument("--root", type=Path, default=Path(__file__).resolve().parents[1])
+    parser.add_argument("--run-root", type=Path, required=True)
+    parser.add_argument("--output", type=Path)
+    parser.add_argument("--dry-inventory", action="store_true")
+    args = parser.parse_args()
+    root = args.root.resolve()
+    run = logical_run_path(root, args.run_root)
+    if args.dry_inventory:
+        print(json.dumps(inventory(run), indent=2))
+        return
+    hashes = {}
+    try:
+        config, grid = verify_provenance(root, run, hashes)
+        selections, outer, best = validate_selections(root, run, config, grid, hashes)
+    except (FileNotFoundError, ValueError, KeyError) as error:
+        raise SystemExit(f"Run incomplete or invalid; no outer summary written: {error}") from error
+    print("Complete task matrix, selections, provenance, and result hashes verified.", flush=True)
+    units = score_complete_run(outer, best)
+    folds, effects = aggregate_units(units, selections)
+    output = (args.output or root / "results" / f"{run.name}-summary").resolve()
+    require(
+        not output.exists() or not any(output.iterdir()), "refusing to overwrite nonempty output"
+    )
+    output.mkdir(parents=True, exist_ok=True)
+    selections.to_csv(output / "selections.csv", index=False)
+    folds.to_csv(output / "method_folds.csv", index=False)
+    domain_counts = (
+        units.groupby(["city", "outer_fold"])[["domain_count", "positive_count"]]
+        .first()
+        .reset_index()
+    )
+    domain_counts.to_csv(output / "domain_counts.csv", index=False)
+    long = folds.melt(
+        id_vars=["city", "outer_fold", "variant"],
+        value_vars=list(METRICS),
+        var_name="metric",
+        value_name="value",
+    )
+    for name, frame, keys, value in (
+        ("methods", long, ["city", "variant", "metric"], "value"),
+        ("contrasts", effects, ["city", "contrast", "metric"], "effect"),
+    ):
+        summary, lofo = describe_folds(frame, keys, value)
+        frame.to_csv(output / f"{name}_folds.csv", index=False)
+        summary.to_csv(output / f"{name}_summary.csv", index=False)
+        lofo.to_csv(output / f"{name}_lofo.csv", index=False)
+    (output / "README.md").write_text(README, encoding="utf-8")
+    manifest = {
+        "status": "complete",
+        "run_namespace": run.name,
+        "outer_fits": len(outer),
+        "inner_candidates": 1250,
+        "selection_units": len(best),
+        "n_folds_per_city": 5,
+        "independent_seed_replicates_for_deterministic_families": 1,
+        "inputs": hashes,
+        "script_sha256": sha256_file(Path(__file__)),
+        "metric_helper_sha256": sha256_file(
+            Path(__file__).with_name("analyze_reviewer_revision.py")
+        ),
+        "outputs": {p.name: sha256_file(p) for p in sorted(output.iterdir()) if p.is_file()},
+    }
+    (output / "manifest.json").write_text(json.dumps(manifest, indent=2) + "\n", encoding="utf-8")
+    print(f"Complete aggregate summary written: {output}")
+
+
+if __name__ == "__main__":
+    main()

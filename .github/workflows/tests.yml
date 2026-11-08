@@ -34,9 +34,13 @@ jobs:
           fi
       - run: python -m pip install -r requirements.txt
       - run: python -m pip check
-      - run: python -m ruff check src scripts tests
-      - run: python -m ruff format --check src scripts tests
+      - run: python -m ruff check src scripts tests reproduction
+      - run: python -m ruff format --check src scripts tests reproduction
       - run: python -m pytest -q --basetemp .pytest_tmp
+      - run: python -I -S reproduction/final_audit/scripts/verify_aggregates.py
+      - run: python -I -S reproduction/controlled_validation/verify_published.py
+      - run: python -I -S reproduction/recovery_audit/verify_records.py
+      - run: python reproduction/controlled_validation/controlled_ranking/test_validation.py
       - run: python scripts/reproduce_tables.py
       - run: python scripts/check_seed_results.py
       - run: python -m floodgnn_ceus.synthetic_diagnostic_validation --output reproduced/synthetic

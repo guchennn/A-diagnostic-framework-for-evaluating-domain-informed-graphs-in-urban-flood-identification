@@ -1,0 +1,43 @@
+{
+  "head_for_orientation_only": "dfb7a627cc18374dd38c6bc1c0ebc3ac29788d77",
+  "tracked_worktree_changes": [
+    " M docs/data_availability.md",
+    " M docs/results_master.md",
+    " M \"docs/\\345\\257\\274\\345\\270\\210\\344\\272\\244\\346\\216\\245\\346\\226\\207\\346\\241\\243.md\"",
+    " M figures/README.md",
+    " M manuscript/build_source_data.py",
+    " M results/README.md",
+    " M src/floodgnn_ceus/e1.py",
+    " M src/floodgnn_ceus/models.py"
+  ],
+  "actual_current_file_sha256": {
+    "configs/feature_schema.yaml": "6f31f479e5b065c25519e13a5f7462d381606a91243c5ea92d60c73b2c86aa46",
+    "configs/sources.yaml": "5e9a5865b6c42556fa9591c3f8162c7f411436bda85515984f926596ca40c204",
+    "configs/protocol.yaml": "024ca881045a833b08ed64cf2a8f2051b8d4aadfb66f64f478908e3a7be68aa6",
+    "configs/graph_config.yaml": "c275508bd82dc7a966c3ca8b77047bd0709ed9b0c908091e66ebf2761470fc5e",
+    "configs/split_config.yaml": "6447db6312028610f8a8e3debba1e8d18917559b705c471f1989c08da507e381",
+    "configs/model_grid.yaml": "e4414c8f307cd035c6f289d996124c8fb64b4f77346b113d09f37c23153362be",
+    "configs/reviewer_revision_v1.yaml": "d532d120cd408d96cd3bc5a5c7a2564e7fb9ad0d80c419956f7e770e38a54436",
+    "configs/cities/beijing.yaml": "bc35e489a8fc6948f857a1fafa5d1f69c34f737a06775b650cfcc1d62a12704b",
+    "configs/cities/zhengzhou.yaml": "b956bd642ab8d15b38f1e2b373250ff3c97fb79b4244481bb0558169d137ab63",
+    "pyproject.toml": "02ab15ad2cd9a9ae261e7908fbd97fe69ca5e476cc18679b644e5da5e10be92b",
+    "uv.lock": "db1978ae35edbd5a070fcd2b7790169da58e4529389a9214b24afdfd4a825772",
+    "src/floodgnn_ceus/terrain.py": "97e45e8ae20bf82dc590bc6453efcd6a0db0e3db74b48212f467f20f207c96b4",
+    "src/floodgnn_ceus/graphs.py": "d9498e210e365839c10f1f978179dd700a9749dc32d22942793d5d7134ba29b5",
+    "src/floodgnn_ceus/features.py": "9dad609ee87b1342943e805911dc9fdc9620376e05e165e62fd1383c4d85d6be",
+    "src/floodgnn_ceus/imerg.py": "42cc30ef4caf6f49d0965fb2a750c565ab0b30c47f0f4b9499d88c3bb7e446f7",
+    "src/floodgnn_ceus/training.py": "57604711a70f0d57c0ca108ef29bca3101d5049780bf95f31101272b9b2242cd",
+    "src/floodgnn_ceus/evaluation_design.py": "f9ff4956d22a0fadfe39446f4b8651424d4f742b96e6c1c30aaeafa7d3c0d093",
+    "src/floodgnn_ceus/graph_support_audit.py": "533471abc4525ade3bd9f9a54501938bf428a7666752e15eff9980a70a489d3f",
+    "src/floodgnn_ceus/supplementary_mechanisms.py": "9e9edb1d962564719ede1226a2abec4c9e1fc316334955cb49946690a51afc99",
+    "src/floodgnn_ceus/io.py": "e1f7c630d669680f56bcb7791353ac8eb25baca87395cf1ec82f61a887bb1ea5",
+    "scripts/analyze_final_review_evaluation.py": "40f9c3665bd518263e76fd979306f2a3e4aeb38d2d75e799dc8a92d907a99e8c",
+    "scripts/analyze_reviewer_training_structure.py": "536c6c39c5302bb812f33fdab90c1623e3e36a0f0f4d624d83c90e6d17ba01f1",
+    "scripts/summarize_reviewer_training.py": "8e576fcb9e3d27e1d542410c8f14fdc163c01cea5fba4e2912304bb923fba711",
+    "artifacts/protocol_lock.json": "eb9187dd9efcc1beeb8e3e9c47ccbc2238936797d99abc7e73b4a97b8d25ec9d",
+    "artifacts/environment_lock.json": "38cc6551c8a466a819be1837e430d0e97a469a3c5413288a24b814f2d71bf2e7"
+  },
+  "warning": "Current source hashes are not evidence of the historical training source. Frozen training/input manifests verified by the replay identify that source.",
+  "original_local_references_manifest_sha256": "4ecad7c107907dfe5ddc6af5147a11aab4ae1095f5d3d65b8ee1b6a3dc004e65",
+  "original_group_migration_manifest_sha256": "63e1e509ea0605580b8dc4127c726d8fda1e4d312eea9d328109f9b646cfb632"
+}

@@ -1,0 +1,50 @@
+schema_version: 1
+protocol_id: FloodGNN-CEUS-ZZ-BJ-v1.0
+environment_lock_required: true
+models:
+  KDE:
+    input: revealed positive coordinates
+    fixed:
+      kernel: gaussian
+      bandwidth: scott
+  XGBoost: &xgboost
+    input: X
+    SMALL: {max_depth: 3, learning_rate: 0.05, n_estimators: 400, subsample: 0.8, colsample_bytree: 0.8}
+    MEDIUM: {max_depth: 6, learning_rate: 0.03, n_estimators: 600, subsample: 0.8, colsample_bytree: 0.8}
+    fixed: {objective: "binary:logistic"}
+  LightGBM:
+    input: X
+    SMALL: {num_leaves: 15, max_depth: 4, learning_rate: 0.05, n_estimators: 400, min_child_samples: 40}
+    MEDIUM: {num_leaves: 31, max_depth: 7, learning_rate: 0.03, n_estimators: 600, min_child_samples: 20}
+    fixed: {objective: binary}
+  MLP: &mlp
+    input: X
+    SMALL: {hidden: [32, 32], dropout: 0.20, learning_rate: 0.001, weight_decay: 0.0001}
+    MEDIUM: {hidden: [64, 64], dropout: 0.40, learning_rate: 0.0005, weight_decay: 0.0005}
+  Neighbor-XGB:
+    <<: *xgboost
+    input: X plus partition-local grid8 covariate summaries
+  Fixed-filter:
+    <<: *mlp
+    input: X plus fixed G2-filtered X
+  GraphSAGE-G2:
+    <<: *mlp
+    input: X plus G2
+    fixed: {layers: 2, aggregator: mean}
+low_data: {budget: 20, config: SMALL, epochs: 150}
+neural_training:
+  optimizer: AdamW
+  betas: [0.9, 0.999]
+  eps: 1.0e-8
+  max_epochs: 250
+  patience: 30
+  scheduler: none
+  gradient_accumulation: false
+  augmentation: false
+tree_training:
+  threads_per_task: 1
+  deterministic: true
+seeds:
+  optimization_seed_id: HPO-1
+  outer_refit_seed_ids: [NEURAL-1, NEURAL-2, NEURAL-3]
+  namespace: "{protocol_id}/{experiment_id}/{city}/{outer_fold}/{budget}/{trajectory_id}/{model}/{config}/{seed_id}"

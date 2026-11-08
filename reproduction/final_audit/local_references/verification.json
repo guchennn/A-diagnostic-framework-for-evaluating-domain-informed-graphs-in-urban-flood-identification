@@ -1,0 +1,10 @@
+{
+  "paired_units": 150,
+  "models_per_unit": 3,
+  "fits_per_fold": 15,
+  "manuscript_mean_max_error_pp": 5.551115123125783e-15,
+  "max_reference_identity_residual": 1.1102230246251565e-16,
+  "max_additivity_residual": 1.0408340855860843e-17,
+  "bootstrap_seed": 20261011,
+  "bootstrap_resamples": 10000
+}

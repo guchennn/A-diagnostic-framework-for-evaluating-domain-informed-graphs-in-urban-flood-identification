@@ -1,0 +1,52 @@
+{
+  "audit_date": "2026-11-08",
+  "original_inputs": [
+    {
+      "artifact_path": "artifacts/runtime/feature-ablation-reselect-20260925/manifest.json",
+      "sha256": "92c4aa3ebfdc309eea3f681ab28a21f710bab79f3fa04bfa74ed39ca3b354623"
+    },
+    {
+      "artifact_path": "artifacts/runtime/feature-ablation-reselect-20260925/inner_selection.csv",
+      "sha256": "f65152aef5f8380b2eb44cd11ae8440cb00e60230058d034790faad0efb08dd1"
+    },
+    {
+      "artifact_path": "artifacts/runtime/feature-ablation-reselect-20260925/cell_metrics.csv",
+      "sha256": "fbe77645ad0a711a08befe9baa8b4fbf999f685d565bdf644cb6cee151ba3312"
+    },
+    {
+      "artifact_path": "outputs/final_operational_audit_20261108/local_references/verification.json",
+      "sha256": "2961e5f8d5b83f9329b84d79b97dc8c75404dec73843c78d6752c8d21ad7c5bc"
+    }
+  ],
+  "frozen_prediction_reanalysis": {
+    "paired_units": 150,
+    "models_per_unit": 3,
+    "fits_per_fold": 15,
+    "manuscript_mean_max_error_pp": 5.551115123125783e-15,
+    "max_reference_identity_residual": 1.1102230246251565e-16,
+    "max_additivity_residual": 1.0408340855860843e-17,
+    "bootstrap_seed": 20261011,
+    "bootstrap_resamples": 10000
+  },
+  "repository_refs": {
+    "guchennn/gnn": {
+      "main": "ec5cece8e52fcd6d0677e3a5fb0d33242e5def31",
+      "codex/gpu-experiments": "6ff64e99e97934b3558dafa632980c04bc978a7f",
+      "codex/research-revisions-20260928": "dfb7a627cc18374dd38c6bc1c0ebc3ac29788d77"
+    },
+    "guchennn/ceus": {
+      "main": "17482a83c2e1816946fccd9801f98ad9e62e8937"
+    }
+  },
+  "missing_records": {
+    "neural_epoch_selection_units": 15,
+    "neural_fit_integer_seed_provenance": 135,
+    "original_full_reselect_generator": "not_recovered"
+  },
+  "published_file_hashes": {
+    "full_budget_manifest.json": "92c4aa3ebfdc309eea3f681ab28a21f710bab79f3fa04bfa74ed39ca3b354623",
+    "full_budget_inner_selection.csv": "f65152aef5f8380b2eb44cd11ae8440cb00e60230058d034790faad0efb08dd1",
+    "full_budget_fit_bank_metrics.csv": "fbe77645ad0a711a08befe9baa8b4fbf999f685d565bdf644cb6cee151ba3312",
+    "main_city_execution.json": "d5a8bc8887b3c1d86763e3160d24cbe0f89fe0088ebc2350a01fea0fe93692ae"
+  }
+}

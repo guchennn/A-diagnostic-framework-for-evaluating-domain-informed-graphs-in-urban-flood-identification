@@ -1,0 +1,44 @@
+schema_version: 1
+seed_protocol_id: FloodGNN-CEUS-ZZ-BJ-v1.0
+expected_nodes:
+  zhengzhou: 25155
+  beijing: 61443
+expected_base_edges:
+  zhengzhou:
+    G1: 197868
+    G2: 24626
+  beijing:
+    G1: 483480
+    G2: 60162
+graphs:
+  G0: empty external edge set
+  G1: bidirectional grid8 adjacency
+  G2: Copernicus GLO-30 surface-derived 200 m D8 directional proxy
+  G4: exact reversal of every G2 edge
+  G5: partition-local degree and distance-class matched G2 rewiring
+grid:
+  resolution_m: 200
+  g1_half_neighbor_offsets: [[0, 1], [1, -1], [1, 0], [1, 1]]
+distance_classes:
+  rook: [[1, 0], [0, 1]]
+  diagonal: [[1, 1]]
+outer_cut:
+  retained_partitions: [train, test]
+  excluded_partition: buffer
+  require_equal_endpoint_partition: true
+g5:
+  realization_ids: [1, 2, 3]
+  partition_attempt_order: [test, train]
+  accepted_swap_multiplier: 10
+  attempt_multiplier: 200
+  overlap_max: 0.10
+  initial_slot_order: [source_grid_id, target_grid_id]
+  slot_id_base: 0
+  proposal: [a_to_d, c_to_b]
+  bit_generator: PCG64DXSM
+  seed_digest: SHA-256 first 16 bytes unsigned big-endian
+  seed_namespace: "{protocol_id}/{city}/{outer_fold}/{partition}/G5/{realization_id}"
+  fold_failure_policy: discard all G5 edges and retain deterministic audit rows
+implementation_files:
+  - src/floodgnn_ceus/terrain.py
+  - src/floodgnn_ceus/graphs.py

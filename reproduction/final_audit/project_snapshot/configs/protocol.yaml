@@ -1,0 +1,128 @@
+base_id: FloodGNN-CEUS-ZZ-BJ-v1.0
+phase: E0
+performance_blind: true
+terminal_statuses:
+  - success
+  - failed
+  - not-estimable
+privacy_statuses:
+  - approved
+  - processing-only
+  - prohibited
+cities:
+  - zhengzhou
+  - beijing
+source_ids:
+  - crowdflood_v1
+  - geoboundaries_chn_adm2
+  - cop_dem_glo30_dged_2024_1
+  - worldcover_2021_v200
+  - imerg_v07b
+  - ohsome_v1
+  - worldpop_r2024b
+canonical_json:
+  ensure_ascii: false
+  sort_keys: true
+  separators:
+    - ","
+    - ":"
+  allow_nan: false
+  encoding: UTF-8
+  trailing_newline: false
+grid:
+  resolution_m: 200
+  origin_x: floor(minx/200)*200
+  origin_y: ceil(maxy/200)*200
+  row_direction: south
+  column_direction: east
+  index_start: 0
+report_assignment:
+  requires:
+    - admin_covers
+    - aoi_covers
+    - final_scorable_grid
+  map_to: final_scorable_grid
+  otherwise: outside_AOI
+aoi:
+  built_up_class: 50
+  connectivity: 8
+  minimum_component_km2: 1
+  buffer_m: 2000
+  exclude_dem_coverage_below: 0.8
+  exclude_water_fraction_above: 0.5
+terrain:
+  context_buffer_m: 10000
+  precision: float64
+  neighbor_order:
+    - E
+    - SE
+    - S
+    - SW
+    - W
+    - NW
+    - N
+    - NE
+  priority_flood:
+    queue_key:
+      - filled_elevation
+      - row
+      - column
+    seed_contract:
+      processing_domain_boundary: valid_cells
+      nodata_adjacent: valid_cells
+  flat_resolution:
+    reference: Barnes et al. 2014
+    algorithm_steps:
+      - 1
+      - 2
+      - 3
+      - 4
+      - 5
+      - 6
+      - 7
+    flat_mask:
+      name: FlatMask
+      dtype: integer
+    epsilon_dem_modification: false
+features:
+  count: 18
+  names:
+    - elevation_mean
+    - slope_mean
+    - relative_elevation_1km
+    - local_relief_1km
+    - log_flow_accumulation
+    - twi
+    - event_rainfall_total
+    - max_6h_rainfall
+    - antecedent_72h_rainfall
+    - built_up_fraction
+    - water_fraction
+    - vegetation_fraction
+    - cropland_fraction
+    - road_length_density
+    - waterway_length_density
+    - distance_to_nearest_waterway
+    - distance_to_WorldCover_waterbody
+    - log1p_population_density
+download_integrity:
+  partial_suffix: .part
+  resume: true
+  finalize: atomic
+  existing_final_mismatch: fail
+  final_file_hash: SHA-256
+  free_space:
+    planned_bytes_multiplier: 2
+    extra_bytes: 21474836480
+  planned_bytes_definition: selected_asset_content_bytes_sum
+  source_manifest_runtime_fields:
+    - bytes
+    - sha256
+e0:
+  forbidden_performance_outputs:
+    - predictions
+    - metrics
+    - model_selection
+    - hyperparameter_selection
+    - leaderboard
+    - outer_test_results

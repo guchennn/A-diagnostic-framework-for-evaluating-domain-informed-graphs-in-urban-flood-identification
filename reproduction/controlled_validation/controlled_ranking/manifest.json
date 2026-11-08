@@ -1,0 +1,28 @@
+{
+  "protocol_sha256": "07e801b5e8204359196ab19483907f8044a3be20d9ac8028328f3ec9e211368a",
+  "script_sha256": "065db9b3fefb074e12b215cf8ac7ebd797e6abbf94f077d5a5344f275b7b1e85",
+  "seed_entropy": 2026110803,
+  "spawn_key": "(phase, composition, scenario_id, strength_id, replicate); phase 0 calibration, 1 test",
+  "calibration_datasets": 600,
+  "test_datasets": 4800,
+  "cells_per_dataset": 12000,
+  "quadrature_max_error": 4.996003610813204e-16,
+  "seconds": 56.972861528396606,
+  "strong_rank_baseline": "Identical mathematical readout, therefore identical results; no separate performance advantage claimed.",
+  "executed_script_sha256": "6593442d3a2254456d8c90111f2cb0fc4f10e2e7199d32758f37791f9bebd9ad",
+  "postrun_changes": "Formatting, unused import removal and annotations; no numeric changes.",
+  "software_versions": {
+    "python": "3.12.11",
+    "numpy": "2.5.1",
+    "scipy": "1.18.0",
+    "pandas": "3.0.5"
+  },
+  "numeric_output_sha256": {
+    "calibration.csv": "0671057581d65ddc5058fd09705d8452391bb7c35947a7ce8ca0c1ac513ce58b",
+    "family_detection.csv": "a5c9db2fe4bba291322fc2b8da08520777723f174b1d8a67d834d00dc924aeec",
+    "oracles.csv": "8f65775a8261acf24a9a45f963936d7112719a4495ebe3a783dd2a361cf5b18d",
+    "replicates.csv": "6fd73dcf1866bd1d0f20c39043f1aac0145bca90aab2cc60ee232f52a6f1f955",
+    "summary.csv": "a026679175d930ff270db5abaf347d858da83e309dc5168ac494a6baddda19ee",
+    "thresholds.csv": "ee1c3991def1107fdce73394d360fe2d86f39158a2dcd2633ab4aab47564c4a9"
+  }
+}

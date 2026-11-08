@@ -1,0 +1,13 @@
+{
+  "note": "Exact historical source hashes retained; original source payload omitted because publication scripts use portable native repository interfaces. These hashes do not describe the modified publication scripts.",
+  "sources": [
+    {
+      "source": "analyze_local_references.py",
+      "historical_executed_sha256": "91aeb3dddc7f85ef599d429d407f8899c663ee9c8014d65cd2b4ad383dac5584"
+    },
+    {
+      "source": "audit_migration.py",
+      "historical_executed_sha256": "725dbe4d5d82ca4060d0e614ecaf77daed25e486e829bcfe43821e0b9d44e902"
+    }
+  ]
+}

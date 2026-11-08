@@ -1,0 +1,7 @@
+regime,family,configs_by_fold,mean_inner_score
+full,XGBoost,"[""SMALL"", ""SMALL"", ""SMALL"", ""SMALL"", ""SMALL""]",0.296619265623571
+full,GraphSAGE-G2,"[""SMALL"", ""MEDIUM"", ""MEDIUM"", ""MEDIUM"", ""MEDIUM""]",0.30165760917245016
+noD8,XGBoost,"[""SMALL"", ""SMALL"", ""SMALL"", ""SMALL"", ""SMALL""]",0.2977263904266746
+noD8,GraphSAGE-G2,"[""SMALL"", ""SMALL"", ""SMALL"", ""SMALL"", ""SMALL""]",0.3018177621488657
+noNeigh,XGBoost,"[""SMALL"", ""SMALL"", ""SMALL"", ""SMALL"", ""SMALL""]",0.3029714558898647
+noNeigh,GraphSAGE-G2,"[""MEDIUM"", ""SMALL"", ""SMALL"", ""SMALL"", ""MEDIUM""]",0.3039187138071433
