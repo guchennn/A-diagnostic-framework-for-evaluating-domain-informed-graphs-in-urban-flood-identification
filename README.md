@@ -40,6 +40,14 @@ requires the prepared graphs and a compatible frozen prediction run; the guides
 distinguish that replay from checking the published aggregates. All commands below
 run from the repository root and use relative paths.
 
+### Completed topology-control evidence
+
+The degree–distance matched G7 experiment now supplies 900 outer fits, 300 independent
+selections and 960 validated partition graphs. All outcomes and interpretation limits
+are documented in [the topology results](results/topology_controls/README.md).
+Verify the published aggregates with
+`python -I -S reproduction/topology_controls/verify_aggregates.py`.
+
 ## Install
 
 Use Python 3.12. Create a virtual environment from the repository root.

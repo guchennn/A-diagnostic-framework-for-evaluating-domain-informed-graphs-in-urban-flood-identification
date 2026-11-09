@@ -1,0 +1,65 @@
+{
+  "scope": "one frozen fold/draw/refit per city and predictor; not all-fit replay",
+  "model_selection_performed": false,
+  "metrics_computed": false,
+  "script_sha256": "f8df49ad3b2f846f2ab4d6154e1edb79b004221e7577e2ec84c18e95c4260296",
+  "all_scores_exactly_equal": true,
+  "fits": [
+    {
+      "city": "zhengzhou",
+      "variant": "FF-G2-1",
+      "fold": 0,
+      "draw": "1",
+      "seed": "NEURAL-1",
+      "config": "MEDIUM",
+      "refit_epochs": 102,
+      "prediction_rows": 10241,
+      "max_absolute_score_difference": 0.0,
+      "exact_score_equality": true,
+      "reference_oof_sha256": "125406eb96820d6686d2f1294aadb18c8c1631f1385a93c3b4f914ee21ba687e",
+      "replay_oof_sha256": "125406eb96820d6686d2f1294aadb18c8c1631f1385a93c3b4f914ee21ba687e"
+    },
+    {
+      "city": "zhengzhou",
+      "variant": "SAGE-G2-2",
+      "fold": 0,
+      "draw": "1",
+      "seed": "NEURAL-1",
+      "config": "SMALL",
+      "refit_epochs": 85,
+      "prediction_rows": 10241,
+      "max_absolute_score_difference": 0.0,
+      "exact_score_equality": true,
+      "reference_oof_sha256": "7d890f6ee7e0b3411875eed69cf38e3c15655256c9877e7e76613d5a71058c8a",
+      "replay_oof_sha256": "7d890f6ee7e0b3411875eed69cf38e3c15655256c9877e7e76613d5a71058c8a"
+    },
+    {
+      "city": "beijing",
+      "variant": "FF-G2-1",
+      "fold": 0,
+      "draw": "1",
+      "seed": "NEURAL-1",
+      "config": "SMALL",
+      "refit_epochs": 76,
+      "prediction_rows": 14268,
+      "max_absolute_score_difference": 0.0,
+      "exact_score_equality": true,
+      "reference_oof_sha256": "c0f0cd6986a2367a7e8223f1a8b179c4d793bab6733fe032be2d69dd0c65dbd1",
+      "replay_oof_sha256": "c0f0cd6986a2367a7e8223f1a8b179c4d793bab6733fe032be2d69dd0c65dbd1"
+    },
+    {
+      "city": "beijing",
+      "variant": "SAGE-G2-2",
+      "fold": 0,
+      "draw": "1",
+      "seed": "NEURAL-1",
+      "config": "SMALL",
+      "refit_epochs": 25,
+      "prediction_rows": 14268,
+      "max_absolute_score_difference": 0.0,
+      "exact_score_equality": true,
+      "reference_oof_sha256": "dbdf3aa46b4d001ba4763462845367d646619b2550b0d1c90d83dcae9463a905",
+      "replay_oof_sha256": "dbdf3aa46b4d001ba4763462845367d646619b2550b0d1c90d83dcae9463a905"
+    }
+  ]
+}

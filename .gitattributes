@@ -7,3 +7,6 @@ results/ablation/inference.csv -text whitespace=cr-at-eol
 reproduction/** -text whitespace=cr-at-eol
 # Matplotlib's archived SVG is a generated figure whose original hash is retained.
 reproduction/controlled_validation/figure8/*.svg -diff
+
+# Preserve historical aggregate hashes across Windows and Linux checkouts.
+results/topology_controls/*.csv -text whitespace=cr-at-eol

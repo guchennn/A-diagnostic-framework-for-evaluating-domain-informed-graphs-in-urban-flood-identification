@@ -68,3 +68,12 @@ synthetic tied-score datasets (four metrics each; maximum absolute difference ze
 No GPU training or city-level numerical replay was performed as part of the public
 adapter validation. Historical experiment results and public-adapter test evidence
 are separate artifacts.
+
+## Completed historical evidence
+
+The [published result tables](../../results/topology_controls/README.md) contain the
+completed 900-control-fit experiment, all graph-realization outcomes and provenance.
+Run `python -I -S reproduction/topology_controls/verify_aggregates.py` to check the
+aggregate identities without scientific Python dependencies. Complete inner-selection
+verification and a bounded four-fit exact reference replay are included alongside
+this document; they are distinct from public-adapter numerical matching.

@@ -56,6 +56,14 @@ guide. Checking aggregate evidence does not reconstruct private predictions.
 Use the relative paths shown in the commands; no machine-specific project location
 is required.
 
+### Completed topology-control evidence
+
+The degree–distance matched G7 experiment now supplies 900 outer fits, 300 independent
+selections and 960 validated partition graphs. All outcomes and interpretation limits
+are documented in [the topology results](results/topology_controls/README.md).
+Verify the published aggregates with
+`python -I -S reproduction/topology_controls/verify_aggregates.py`.
+
 ## Prepare the data
 
 Obtain provider access using the data guide, then run each stage.

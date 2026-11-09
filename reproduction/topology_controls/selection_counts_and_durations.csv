@@ -1,0 +1,9 @@
+city,predictor,selected_config,selections,minimum_refit_epochs,median_refit_epochs,maximum_refit_epochs
+beijing,Fixed-filter,MEDIUM,42,11,127.5,244
+beijing,Fixed-filter,SMALL,33,49,81.0,156
+beijing,GraphSAGE-G2,MEDIUM,26,50,99.0,218
+beijing,GraphSAGE-G2,SMALL,49,15,69.0,154
+zhengzhou,Fixed-filter,MEDIUM,44,9,47.0,185
+zhengzhou,Fixed-filter,SMALL,31,14,35.0,122
+zhengzhou,GraphSAGE-G2,MEDIUM,30,15,40.5,104
+zhengzhou,GraphSAGE-G2,SMALL,45,15,45.0,188

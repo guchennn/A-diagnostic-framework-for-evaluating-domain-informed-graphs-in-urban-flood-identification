@@ -41,6 +41,7 @@ jobs:
       - run: python -I -S reproduction/controlled_validation/verify_published.py
       - run: python -I -S reproduction/recovery_audit/verify_records.py
       - run: python -I -S reproduction/selection_alignment/verify_tables.py
+      - run: python -I -S reproduction/topology_controls/verify_aggregates.py
       - run: python reproduction/controlled_validation/controlled_ranking/test_validation.py
       - run: python scripts/reproduce_tables.py
       - run: python scripts/check_seed_results.py
