@@ -1,0 +1,17 @@
+run_id: adjacency-attributes-v1-20261124
+base_run: minor-revision-controls-v1
+cities: [zhengzhou, beijing]
+outer_folds: [0, 1, 2, 3, 4]
+trajectories: ['1', '2', '3', '4', '5']
+inner_folds: [0, 1, 2]
+candidates: [SMALL, MEDIUM]
+outer_seeds: [NEURAL-1, NEURAL-2, NEURAL-3]
+cpu_threads: 1
+conditions:
+  - budget: '100'
+    features: [F16-noD8, F14-noNeigh]
+  - budget: FULL
+    features: [F18, F16-noD8, F14-noNeigh]
+variants:
+  - {id: FF-G1-1, model: Fixed-filter, graph: G1, steps: 1}
+  - {id: SAGE-G1-2, model: GraphSAGE-G2, graph: G1, layers: 2}
